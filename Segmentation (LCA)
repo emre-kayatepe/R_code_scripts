@@ -1,0 +1,236 @@
+library(dplyr)
+library(car)
+library(psych)
+library(tidyr)
+
+kesid_data <- read.csv("kesid_data.csv")
+
+kesid_data <- kesid_data %>% 
+  drop_na(Sebep)
+
+# First Variable: "Teknolojik/Lüks Ürün Sahipliği" ####
+selected_cols1 <- c("S1_1", "S1_2", "S1_3", "S1_5", "S1_10", "S1_11", "S1_14", "S1_16", "S1_18", "S1_23")
+
+kesid_data <- kesid_data %>% dplyr::mutate(Sahiplik = rowSums(kesid_data[selected_cols1] == 1))
+
+describe(kesid_data$Sahiplik)
+
+kesid_data$Sahiplik <- ifelse(kesid_data$Sahiplik <= 2, 1, 2)
+
+summarytools::freq(kesid_data$Sahiplik)
+
+# Second Variable: "Teknolojik/Lüks Ürün Satın Alma Niyeti" ####
+selected_cols2 <- c("S4_1", "S4_2", "S4_3", "S4_5", "S4_10", "S4_11", "S4_14", "S4_16", "S4_18", "S4_23")
+
+kesid_data <- kesid_data %>% mutate(Niyet = rowSums(kesid_data[selected_cols2] == 2, na.rm = TRUE))
+
+describe(kesid_data$Niyet)
+
+kesid_data$Niyet <- ifelse(kesid_data$Niyet <= 1, 1, 2)
+
+summarytools::freq(kesid_data$Niyet)
+
+# Third Variable: "Satın Alırken Bilgi Edinme Kaynağı" ####
+kesid_data$Kaynak <- car::recode(kesid_data$S5, "1=1; 4=1; 6=1; 7=1; 2=2; 3=2; 5=2")
+summarytools::freq(kesid_data$Kaynak)
+
+# Fourth Variable: "Satın Alma Sebebi" ####
+kesid_data$S6_S1 <- ifelse(kesid_data$S6_1 > 1, 0, 1)
+kesid_data$S6_S2 <- ifelse(kesid_data$S6_2 > 1, 0, 1)
+kesid_data$S6_S3 <- ifelse(kesid_data$S6_3 > 1, 0, 1)
+kesid_data$S6_S4 <- ifelse(kesid_data$S6_4 > 1, 0, 1)
+kesid_data$S6_S5 <- ifelse(kesid_data$S6_5 > 1, 0, 1)
+kesid_data$S6_S6 <- ifelse(kesid_data$S6_6 > 1, 0, 1)
+kesid_data$S6_S7 <- ifelse(kesid_data$S6_7 > 1, 0, 1)
+kesid_data$S6_S8 <- ifelse(kesid_data$S6_8 > 1, 0, 1)
+kesid_data$S6_S9 <- ifelse(kesid_data$S6_9 > 1, 0, 1)
+kesid_data$S6_S10 <- ifelse(kesid_data$S6_10 > 1, 0, 1)
+kesid_data$S6_S11 <- ifelse(kesid_data$S6_11 > 1, 0, 1)
+kesid_data$S6_S12 <- ifelse(kesid_data$S6_12 > 1, 0, 1)
+kesid_data$S6_S13 <- ifelse(kesid_data$S6_13 > 1, 0, 1)
+
+kesid_data <- kesid_data %>% 
+  mutate(Sebep = case_when(S6_S2 == 1 ~ 1, S6_S3 == 1 ~ 1, S6_S4 == 1 ~ 1, S6_S5 == 1 ~ 1, S6_S6 == 1 ~ 1, S6_S7 == 1 ~ 1, 
+                                     S6_S1 == 1 ~ 0, S6_S8 == 1 ~ 0, S6_S9 == 1 ~ 0, S6_S10 == 1 ~ 0, S6_S11 == 1 ~ 0, S6_S12 == 1 ~ 0, 
+                                     S6_S13 == 1 ~ 0))
+
+kesid_data$Sebep <- car::recode(kesid_data$Sebep, "0=1; 1=2")
+
+summarytools::freq(kesid_data$Sebep)
+
+# Below is exploratory!
+Sebep_na <- kesid_data %>% 
+  filter(is.na(Sebep)) %>% 
+  dplyr::select(S6_1:S6_13)
+
+kesid_data <- mutate(kesid_data, smallest_value = min(S6_1, S6_2, S6_3, S6_4, S6_5, S6_6, S6_7, S6_8, S6_9, S6_10, S6_11, S6_12, S6_13))
+
+# Fifth Variable: "Teknolojik Ürünlere Yakınlık" ####
+kesid_data$S7_1R <- car::recode(kesid_data$S7_1, "1=7; 2=6; 3=5; 4=4; 5=3; 6=2; 7=1")
+kesid_data$S7_2R <- car::recode(kesid_data$S7_2, "1=7; 2=6; 3=5; 4=4; 5=3; 6=2; 7=1")
+kesid_data$S7_4R <- car::recode(kesid_data$S7_4, "1=7; 2=6; 3=5; 4=4; 5=3; 6=2; 7=1")
+
+Yakınlık_scale <- c("S7_1R", "S7_2R", "S7_4R", "S7_6", "S7_7", "S7_9")
+
+kesid_data <- kesid_data %>% 
+  mutate(Yakınlık_say = rowMeans(kesid_data[ ,Yakınlık_scale], na.rm = TRUE))
+
+describe(kesid_data$Yakınlık_say)
+
+kesid_data$Yakınlık <- ifelse(kesid_data$Yakınlık_say <= 4.17, 1, 2)
+
+summarytools::freq(lca_data$Yakınlık)
+
+# Sixth Variable: "Gelecekte Akıllı ve Teknolojik Ürün Kullanım Yaygınlığı Düşünceleri" ####
+selected_cols3 <- names(kesid_data)[123:127]
+
+kesid_data <- kesid_data %>% mutate(Yaygınlık_say = rowSums(kesid_data[selected_cols3] == 1))
+
+describe(kesid_data$Yaygınlık_say)
+
+kesid_data$Yaygınlık <- ifelse(kesid_data$Yaygınlık_say <= 4, 1, 2)
+
+summarytools::freq(lca_data$Yaygınlık)
+
+# Seventh Variable: "Gelir" ####
+kesid_data$Gelir <- as.numeric(kesid_data$Gelir)
+kesid_data$Gelir <- ifelse(kesid_data$Gelir <= 3, 1, 2)
+summarytools::freq(lca_data$Gelir)
+
+
+# LCA on Seven Variables ####
+library(tidyverse)
+library(ggthemes)
+library(poLCA)
+
+lca_data <- kesid_data %>% 
+  dplyr::select(Yaygınlık, Yakınlık, Sahiplik, Kaynak, Sebep, Gelir, X)
+
+lca_data <- lca_data %>% 
+  filter(Segment == 2)
+
+lca_data <- lca_data %>% 
+  dplyr::select(-Segment)
+
+lca_data <- lca_data %>% 
+  drop_na()
+
+freq <- apply(X = lca_data[, -7], MARGIN = 2, FUN = table)
+barplot(freq, beside = T, legend = c("düşük", "yüksek"),
+        main = "Dağılım", args.legend = list(x = "center"))
+
+f <- cbind(Yaygınlık, Yakınlık, Sahiplik, Kaynak, Sebep, Gelir) ~ 1
+
+# Estimate models (takes long!)
+m1 <- poLCA(f, lca_data[, -7], nclass = 1, nrep = 10)
+m2 <- poLCA(f, lca_data[, -7], nclass = 2, nrep = 10)
+m3 <- poLCA(f, lca_data[, -7], nclass = 3, nrep = 10)
+m4 <- poLCA(f, lca_data[, -7], nclass = 4, nrep = 10)
+m5 <- poLCA(f, lca_data[, -7], nclass = 5, nrep = 10)
+m6 <- poLCA(f, lca_data[, -7], nclass = 6, nrep = 50, maxiter = 5000)
+m7 <- poLCA(f, lca_data[, -7], nclass = 7, nrep = 50, maxiter = 5000)
+
+
+# model fit table
+classes <- 1:7
+index   <- rep(c("AIC", "BIC", "CAIC", "SABIC"), each = 7)
+aic     <- c(m1$aic, m2$aic, m3$aic, m4$aic, m5$aic, m6$aic, m7$aic)
+bic     <- c(m1$bic, m2$bic, m3$bic, m4$bic, m5$bic, m6$bic, m7$bic) 
+llik    <- c(m1$llik, m2$llik, m3$llik, m4$llik, m5$llik, m6$llik, m7$llik)
+npar    <- c(m1$npar, m2$npar, m3$npar, m4$npar, m5$npar, m6$npar, m7$npar)
+n       <- nrow(lca_data)
+caic    <- -2*llik + npar*(log(n) + 1)
+sabic   <- -2*llik + npar*log((n + 2)/24)
+lca_fval <- c(aic, bic, caic, sabic)
+lca_fit <- data.frame(classes, index, lca_fval)
+lca_fit
+
+# Plot selected information criteria
+ggplot(lca_fit, aes(x = classes, y = lca_fval, col = index)) +
+  geom_line() +
+  geom_point(aes(shape = index), size = 2) +
+  theme_few() +
+  scale_color_few(palette = "Medium") +
+  labs(y = "Value", x = "Classes", col = "", shape = "")
+
+# Best number of classes for each index
+which(aic == min(aic))
+which(bic == min(bic))
+which(caic == min(caic))
+which(sabic == min(sabic))
+
+# Classification diagnostics
+
+# Average latent class probabilities for most likely latent class membership
+round(aggregate(
+  x = m2$posterior,
+  by = list(m2$predclass),
+  FUN = "mean"
+) , 2)
+
+# Function for relative entropy
+lca_entropy <- function(x) {
+  1 - ((sum(-x$posterior * log(x$posterior))) / (nrow(x$posterior) * log(ncol(x$posterior))))
+}
+
+# Estimating relative entropy
+lca_models <- list(m2, m3, m4, m5, m6, m7)
+entropy <- sapply(lca_models, FUN = lca_entropy)
+entropy
+plot(entropy ~ c(2:7), type = "b", ylim = c(0, 1), xlab = "Classes")
+
+
+m2r <- poLCA(f, lca_data[, -7], nclass = 3)
+m2r
+
+# Barplot for 2 classes
+plot(m2)
+
+# Profile plot for 2 classes
+data.frame(Class = 1:3,
+           "Yaygınlık"  = m2r$probs$Yaygınlık[, 2],
+           "Yakınlık" = m2r$probs$Yakınlık[, 2], 
+           "Sahiplik" = m2r$probs$Sahiplik[, 2], 
+           "Kaynak" = m2r$probs$Kaynak[, 2], 
+           "Sebep" = m2r$probs$Sebep[, 2],
+           "Gelir" = m2r$probs$Gelir[, 2])  %>%
+  pivot_longer(cols = Yaygınlık:Gelir,
+               names_to = "Var",
+               values_to = "Prob") %>%
+  mutate(Class = as.factor(Class), 
+         Var = factor(Var, levels = c("Yaygınlık", "Yakınlık", "Sahiplik", "Kaynak", 
+                                      "Sebep", "Gelir"), ordered = TRUE)) %>% 
+  ggplot(aes(x = Var, y = Prob, col = Class, group = Class)) +
+  geom_line() +
+  geom_point(aes(shape = Class), size = 2) +
+  scale_y_continuous(breaks = seq(0, 1, by = .2)) +
+  theme_few() +
+  theme(panel.grid.major.y  = element_line(colour = "grey80")) +
+  labs(x = "", y = "Item Probability")
+
+
+# Class Membership
+a <- data.frame(m2r$predclass)
+summarytools::freq(a$m2r.predclass)
+
+lca_data$Segment <- m2r$predclass
+
+lca_membership <- lca_data %>% 
+  dplyr::select(X, Segment)
+
+kesid_data <- kesid_data %>% 
+  full_join(lca_membership, by = "X")
+
+summarytools::freq(kesid_data_segment$Segment)
+
+write.csv(kesid_data, "kesid_data2.csv")
+
+
+# Below is exploration for class transition between models.
+lca_membership$class_membership2 <- car::recode(lca_membership$class_membership2, "1=2; 2=1")
+
+classification <- lca_membership %>% 
+  dplyr::select(X, class_membership, class_membership2)
+
+classification2 <- classification %>% 
+  filter((class_membership == "1" & class_membership2 == "2") | (class_membership == "1" & class_membership2 == "2"))
