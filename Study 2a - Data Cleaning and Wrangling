@@ -1,0 +1,15 @@
+# First Level Data Cleaning and Final Scoring ####
+
+
+#packages
+library(dplyr)
+library(tidyr)
+library(ids)
+library(psych)
+library(ggplot2)
+library(readxl)
+
+## Time 1 data ####
+
+# Importing dataset
+rawdata_T1 <- read.csv("rawdata_T1.csv")
