@@ -1,0 +1,792 @@
+library(readr)
+library(tidyverse)
+getwd()
+setwd("~/Desktop")
+
+#--------- Load libraries and read data ---------
+library(afex)
+library(apaTables)
+library(dplyr)
+library(ggplot2)
+library(rstatix)
+library(summarytools)
+library(pwr)
+library(ggpubr)
+library(moderndive)
+library(WRS2)
+
+##read dataset, for Study 2, change "study1.csv" to "study2.csv"
+datap1 <- read.csv("study1.csv")
+
+#--------- Data cleaning ---------
+
+
+# Note the number of people who did not write anything
+datap1 %>% filter(how_many_explained == 0) %>% nrow()
+group_by(datap1, condition) %>%
+  summarise(
+    count = n()
+  )
+zero_explanations <- sum(datap1$how_many_explained == 0)
+
+# Filter out people who did not fill out all 4 explanations
+revised_IOED3 <- datap1 %>% filter(how_many_explained ==4)
+
+###disable e values
+options(scipen = 999)
+
+
+#--------- Descriptives ---------
+##export the data frame
+write.csv(revised_IOED3,"C:\\Desktop\\MyData3.csv", row.names = FALSE)
+
+sd(revised_IOED3$age)
+mean(revised_IOED3$age)
+# Gender
+revised_IOED3$sex <- factor(revised_IOED3$sex, levels = c(1:4), 
+                            labels = c("female",  "male", "intersex", "other"))
+
+summarytools::freq(revised_IOED3$sex)
+
+##Religion
+revised_IOED3$religion <- factor(revised_IOED3$religion, levels = c(1:8),
+                                 labels = c("Atheist","Agnostic","Budist","Deist","Christian", "Muslim" ,"Jewish", "Other"))
+
+summarytools::freq(revised_IOED3$religion)
+
+##Political Orientation
+##create ideological extremity, from 0=moderate to 3=extreme
+revised_IOED3$political_extremist <- (revised_IOED3$pol_orient-4)
+revised_IOED3$extreme <- abs(revised_IOED3$political_extremist)
+
+##create ideological type, -1=left, 0=moderate, 1=right
+revised_IOED3$Ideo_Type <- NA
+revised_IOED3$Ideo_Type[revised_IOED3$pol_orient<4] <- -1
+revised_IOED3$Ideo_Type[revised_IOED3$pol_orient==4] <- 0
+revised_IOED3$Ideo_Type[revised_IOED3$pol_orient>4] <- 1
+
+summarytools::freq(revised_IOED3$extreme)
+summarytools::freq(revised_IOED3$Ideo_Type)
+
+
+# FII
+#Reverse-code the three FII items into new variables
+revised_IOED3$faith_intuition_7rc <- 6 - revised_IOED3$faith_intuition_7
+revised_IOED3$faith_intuition_8rc <- 6 - revised_IOED3$faith_intuition_8
+revised_IOED3$faith_intuition_9rc <- 6 - revised_IOED3$faith_intuition_9
+
+#FII_mean
+FII_items <- c("faith_intuition_1", "faith_intuition_2", "faith_intuition_3", "faith_intuition_4", "faith_intuition_5", "faith_intuition_6", "faith_intuition_7rc", "faith_intuition_8rc", "faith_intuition_9rc", "faith_intuition_10", "faith_intuition_11")
+
+revised_IOED3 <-revised_IOED3 %>% mutate(FII_mean = rowMeans(select(., FII_items)))
+
+FII <- select(revised_IOED3,faith_intuition_1, faith_intuition_2, faith_intuition_3, faith_intuition_4, faith_intuition_5, faith_intuition_6, faith_intuition_7rc, faith_intuition_8rc, faith_intuition_9rc, faith_intuition_10, faith_intuition_11)
+
+
+#Scale Reliabilities
+psych::alpha(FII)
+
+###exclude participants who did not understand mechanistic instructions
+und_IOED <- revised_IOED3 %>% filter(mechanistic_understood == 1 | condition=="reasons")
+group_by(und_IOED, condition) %>%
+  summarise(
+    count = n()
+  )
+
+
+#--------- 2x2 Mixed-ANOVA --------
+
+##data format change for running mixed-anova for understanding and extremity (radicalism)
+simplified_IOED3 <- revised_IOED3 %>%
+  select(participant_id, condition,
+         moral_decrease_understand, moral_decrease_radical,
+         non_moral_decrease_understand, non_moral_decrease_radical)
+
+#for understanding
+simplified_IOED3_long = reshape(simplified_IOED3,
+                                idvar="participant_id",
+                                varying = c("non_moral_decrease_understand","moral_decrease_understand"),
+                                v.name = c("decrease_understand"),
+                                timevar = "issue_type",
+                                times=c("non-moral","moral"),
+                                direction="long")
+
+#converting data format of 'condition' and 'issue_type' variables from character to factor
+simplified_IOED3_long$condition <- as.factor(simplified_IOED3_long$condition)
+simplified_IOED3_long$issue_type <- as.factor(simplified_IOED3_long$issue_type)
+
+#for extremism
+simplified_IOED3_long_ext = reshape(simplified_IOED3,
+                                    idvar="participant_id",
+                                    varying = c("non_moral_decrease_radical","moral_decrease_radical"),
+                                    v.name = c("decrease_radical"),
+                                    timevar = "issue_type",
+                                    times=c("non-moral","moral"),
+                                    direction="long")
+
+#converting data format of 'condition' and 'issue_type' variables from character to factor
+simplified_IOED3_long_ext$condition <- as.factor(simplified_IOED3_long_ext$condition)
+simplified_IOED3_long_ext$issue_type <- as.factor(simplified_IOED3_long_ext$issue_type)
+
+
+#### 2x2 Mixed ANOVA (for understanding)
+
+### Assumption Checks
+
+#Outliers
+ggplot(simplified_IOED3_long, aes(x = condition, y = decrease_understand, color = issue_type)) +
+  geom_boxplot()
+
+simplified_IOED3_long %>% 
+  group_by(condition, issue_type) %>% 
+  identify_outliers(decrease_understand)
+
+#removing outliers for Study 1 (do not run while analyzing Study 2 data)
+simplified_IOED3_long <- simplified_IOED3_long %>%
+  filter(!participant_id %in% c(13, 133, 287, 538, 303, 566, 88, 205, 242, 278, 284, 310, 314, 552, 254))
+
+#removing outliers for Study 2 (do not run while analyzing Study 1 data)
+simplified_IOED3_long <- simplified_IOED3_long %>%
+  filter(!participant_id %in% c(15, 47, 109, 188, 208, 239, 66, 125, 142, 185, 251, 183, 86, 97))
+
+# Normality 
+simplified_IOED3_long %>% 
+  group_by(condition, issue_type) %>% 
+  shapiro_test(decrease_understand)
+
+ggplot(simplified_IOED3_long, aes(x = decrease_understand)) +
+  geom_histogram(binwidth = 0.5, color = "white") +
+  facet_grid(condition ~ issue_type)
+
+ggqqplot(simplified_IOED3_long, "decrease_understand", ggtheme = theme_bw()) +
+  facet_grid(condition ~ issue_type)
+
+# Homogeneity of Variance (Levene's Test)
+simplified_IOED3_long %>%
+  group_by(issue_type) %>%
+  levene_test(decrease_understand ~ condition)
+
+# Homogeneity of Covariance (Box's M Test)
+box_m(simplified_IOED3_long[, "decrease_understand", drop = FALSE], simplified_IOED3_long$condition)
+
+##analysis code for standard mixed-anova
+res.aov <- anova_test(data = simplified_IOED3_long, dv = decrease_understand, wid = participant_id,
+                      between = condition, within = issue_type)
+get_anova_table(res.aov)
+
+##analysis code for robust mixed-anova
+bwtrim(decrease_understand ~ condition*issue_type, id = participant_id, data = simplified_IOED3_long)
+
+simplified_IOED3_long %>% 
+  group_by(condition) %>% 
+  summarise(mean = mean(decrease_understand),
+            sd = sd(decrease_understand))
+
+
+### 2x2 Mixed ANOVA (for extremity (radicalism))
+
+### Assumption Checks
+
+# Outliers
+ggplot(simplified_IOED3_long_ext, aes(x = condition, y = decrease_radical, color = issue_type)) +
+  geom_boxplot()
+
+simplified_IOED3_long_ext %>% 
+  group_by(condition, issue_type) %>% 
+  identify_outliers(decrease_radical)
+
+#removing outliers for Study 1 (do not run while analyzing Study 2 data)
+simplified_IOED3_long_ext <- simplified_IOED3_long_ext %>%
+  filter(!participant_id %in% c(4, 13, 72, 104, 207, 257, 303, 508, 537, 557, 70, 108, 143, 147, 211, 255, 278, 518))
+
+#removing outliers for Study 2 (do not run while analyzing Study 1 data)
+simplified_IOED3_long_ext <- simplified_IOED3_long_ext %>%
+  filter(!participant_id %in% c(35, 43, 72, 97, 98, 104, 110, 122, 124, 142, 183, 188, 205, 208, 219, 230, 263, 297, 335, 442, 632, 639, 660, 671))
+
+# Normality 
+simplified_IOED3_long_ext %>% 
+  group_by(condition, issue_type) %>% 
+  shapiro_test(decrease_radical)
+
+ggplot(simplified_IOED3_long_ext, aes(x = decrease_radical)) +
+  geom_histogram(binwidth = 0.5, color = "white") +
+  facet_grid(condition ~ issue_type)
+
+ggqqplot(simplified_IOED3_long_ext, "decrease_radical", ggtheme = theme_bw()) +
+  facet_grid(condition ~ issue_type)
+
+# Homogeneity of Variance (Levene's Test)
+simplified_IOED3_long_ext %>%
+  group_by(issue_type) %>%
+  levene_test(decrease_radical ~ condition)
+
+# Homogeneity of Covariance (Box's M Test)
+box_m(simplified_IOED3_long_ext[, "decrease_radical", drop = FALSE], simplified_IOED3_long_ext$condition)
+
+##analysis code
+res.aov <- anova_test(data = simplified_IOED3_long_ext, dv = decrease_radical, wid = participant_id,
+                      between = condition, within = issue_type)
+get_anova_table(res.aov)
+
+##analysis code for robust mixed-anova
+bwtrim(decrease_radical ~ condition*issue_type, id = participant_id, data = simplified_IOED3_long_ext)
+
+simplified_IOED3_long_ext %>% 
+  group_by(condition) %>% 
+  summarise(mean = mean(decrease_radical),
+            sd = sd(decrease_radical))
+
+
+
+#### Identical data analyses only with participants who understood mechanistic instructions ####
+
+###exclude participants who did not understand mechanistic instructions
+und_IOED <- revised_IOED3 %>% filter(mechanistic_understood == 1 | condition=="reasons")
+
+##data format change for running anova for understanding and extremity (radicalism)
+
+simplified_und_IOED <- und_IOED %>%
+  select(participant_id, condition,
+         moral_decrease_understand, moral_decrease_radical,
+         non_moral_decrease_understand, non_moral_decrease_radical)
+
+#for understanding
+simplified_und_IOED_long = reshape(simplified_und_IOED,
+                                   idvar="participant_id",
+                                   varying = c("non_moral_decrease_understand","moral_decrease_understand"),
+                                   v.name = c("decrease_understand"),
+                                   timevar = "issue_type",
+                                   times=c("non-moral","moral"),
+                                   direction="long")
+
+#for extremism
+simplified_und_IOED_long_ext = reshape(simplified_und_IOED,
+                                       idvar="participant_id",
+                                       varying = c("non_moral_decrease_radical","moral_decrease_radical"),
+                                       v.name = c("decrease_radical"),
+                                       timevar = "issue_type",
+                                       times=c("non-moral","moral"),
+                                       direction="long")
+
+### 2x2 Mixed ANOVA (for understanding)
+
+### Assumption Checks
+
+#Outliers
+ggplot(simplified_und_IOED_long, aes(x = condition, y = decrease_understand, color = issue_type)) +
+  geom_boxplot()
+
+simplified_und_IOED_long %>% 
+  group_by(condition, issue_type) %>% 
+  identify_outliers(decrease_understand)
+
+#removing outliers for study 1(do not run while analyzing study 2)
+simplified_und_IOED_long <- simplified_und_IOED_long %>%
+  filter(!participant_id %in% c(15, 66, 72, 73, 83, 88, 119, 133, 155, 178, 190, 205, 234, 238, 242, 254, 278, 284, 287, 289, 292, 303, 310, 314, 319, 515,
+                                533, 537, 552))
+
+#removing outliers for study 2(do not run while analyzing study 1)
+simplified_und_IOED_long <- simplified_und_IOED_long %>%
+  filter(!participant_id %in% c(15, 47, 86, 97, 109, 183, 185, 239))
+
+# Normality 
+simplified_und_IOED_long %>% 
+  group_by(condition, issue_type) %>% 
+  shapiro_test(decrease_understand)
+
+ggplot(simplified_und_IOED_long, aes(x = decrease_understand)) +
+  geom_histogram(binwidth = 0.5, color = "white") +
+  facet_grid(condition ~ issue_type)
+
+ggqqplot(simplified_und_IOED_long, "decrease_understand", ggtheme = theme_bw()) +
+  facet_grid(condition ~ issue_type)
+
+# Homogeneity of Variance (Levene's Test)
+simplified_und_IOED_long %>%
+  group_by(issue_type) %>%
+  levene_test(decrease_understand ~ condition)
+
+# Homogeneity of Covariance (Box's M Test)
+box_m(simplified_und_IOED_long[, "decrease_understand", drop = FALSE], simplified_und_IOED_long$condition)
+
+##analysis code for robust mixed-anova
+bwtrim(decrease_understand ~ condition*issue_type, id = participant_id, data = simplified_und_IOED_long)
+
+##analysis code for standard mixed-anova
+res.aov <- anova_test(data = simplified_und_IOED_long, dv = decrease_understand, wid = participant_id,
+                      between = condition, within = issue_type)
+get_anova_table(res.aov)
+
+
+### 2x2 Mixed ANOVA (for extremity (radicalism))
+
+### Assumption Checks
+
+# Outliers
+ggplot(simplified_und_IOED_long_ext, aes(x = condition, y = decrease_radical, color = issue_type)) +
+  geom_boxplot()
+
+simplified_und_IOED_long_ext %>% 
+  group_by(condition, issue_type) %>% 
+  identify_outliers(decrease_radical)
+
+#removing outliers for study 1(do not run while analyzing study 2)
+simplified_und_IOED_long_ext <- simplified_und_IOED_long_ext %>%
+  filter(!participant_id %in% c(72, 207, 303, 537, 557, 66, 83, 95, 133, 243, 525, 70, 108, 143, 147, 211, 255, 278, 518))
+
+#removing outliers for study 2(do not run while analyzing study 1)
+simplified_und_IOED_long_ext <- simplified_und_IOED_long_ext %>%
+  filter(!participant_id %in% c(43, 142, 219, 632, 639, 660, 671, 124, 183, 297, 97, 98, 104, 110, 122, 335))
+
+# Normality
+simplified_und_IOED_long_ext %>% 
+  group_by(condition, issue_type) %>% 
+  shapiro_test(decrease_radical)
+
+ggplot(simplified_und_IOED_long_ext, aes(x = decrease_radical)) +
+  geom_histogram(binwidth = 0.5, color = "white") +
+  facet_grid(condition ~ issue_type)
+
+ggqqplot(simplified_und_IOED_long_ext, "decrease_radical", ggtheme = theme_bw()) +
+  facet_grid(condition ~ issue_type)
+
+# Homogeneity of Variance (Levene's Test)
+simplified_und_IOED_long_ext %>%
+  group_by(issue_type) %>%
+  levene_test(decrease_radical ~ condition)
+
+# Homogeneity of Covariance Matrices (Box's M Test)
+box_m(simplified_und_IOED_long_ext[, "decrease_radical", drop = FALSE], simplified_und_IOED_long_ext$condition)
+
+##analysis code for robust mixed-anova
+bwtrim(decrease_radical ~ condition*issue_type, id = participant_id, data = simplified_und_IOED_long_ext)
+
+##analysis code for standard mixed-anova
+res.aov <- anova_test(data = simplified_und_IOED_long_ext, dv = decrease_radical, wid = participant_id,
+                      between = condition, within = issue_type)
+get_anova_table(res.aov)
+
+simplified_und_IOED_long_ext %>% 
+  group_by(condition) %>% 
+  summarise(mean = mean(decrease_radical),
+            sd = sd(decrease_radical))
+
+
+#---------- Exploratory  ---------
+#Hypothesis 3: Moderation by thinking style
+
+# CRT on Decrease in understanding 
+##Moderated regression
+##Linear Regression CRT*Condition- Decrease in Understanding for Non-Moral Issues
+
+##Assumption Checks for Regression Analysis
+
+### Outliers
+data_mahal_dist <- revised_IOED3 %>% 
+  select(non_moral_decrease_understand, crt_total)
+
+data_mahal_dist$mahal <- mahalanobis(data_mahal_dist, colMeans(data_mahal_dist), cov(data_mahal_dist))
+
+data_mahal_dist$p <- pchisq(data_mahal_dist$mahal, df=1, lower.tail=FALSE)
+
+#Excluding outliers does not change the results in Study 2. Study 1 data does not have outliers. (when running w/o outliers, add "_wo" to data frame name)
+revised_IOED3_wo <- revised_IOED3 %>% 
+ filter(!participant_id %in% c(188, 185, 109, 639, 125))
+
+### Linear Relationship between Variables
+ggplot(revised_IOED3, aes(x = crt_total, y = non_moral_decrease_understand)) +
+  geom_point()
+
+### Normality of Residuals
+reg_model <- lm(non_moral_decrease_understand ~ crt_total, data = revised_IOED3)
+
+regression_points <- get_regression_points(reg_model)
+
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.5, color = "white") +
+  labs("Residual")
+
+### Equality of Variance of the Residuals
+ggplot(regression_points, aes(x = crt_total, y = residual)) +
+  geom_point() +
+  labs(x = "CRT score", y = "Residual") +
+  geom_hline(yintercept = 0, col = "blue", size = 1)
+
+summary(lm(non_moral_decrease_understand ~crt_total*condition, revised_IOED3))
+
+##Linear Regression CRT*Condition- Decrease in Understanding for Non-Moral Issues (only with participants who understood mechanistic instructions)
+
+##Assumption Checks for Regression Analysis
+
+### Outliers
+data_mahal_dist <- und_IOED %>% 
+  select(non_moral_decrease_understand, crt_total)
+
+data_mahal_dist$mahal <- mahalanobis(data_mahal_dist, colMeans(data_mahal_dist), cov(data_mahal_dist))
+
+data_mahal_dist$p <- pchisq(data_mahal_dist$mahal, df=1, lower.tail=FALSE)
+
+#Excluding outliers does not change results in Study 2. Study 1 data does not have outliers. (when running w/o outliers, add "_wo" to data frame name)
+und_IOED_wo <- und_IOED %>% 
+ filter(!participant_id %in% c(109, 639, 185))
+
+### Linear Relationship between Variables
+ggplot(und_IOED, aes(x = crt_total, y = non_moral_decrease_understand)) +
+  geom_point()
+
+### Normality of Residuals
+reg_model <- lm(non_moral_decrease_understand ~ crt_total, data = und_IOED)
+
+regression_points <- get_regression_points(reg_model)
+
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.5, color = "white") +
+  labs("Residual")
+
+### Equality of Variance of the Residuals
+ggplot(regression_points, aes(x = crt_total, y = residual)) +
+  geom_point() +
+  labs(x = "CRT score", y = "Residual") +
+  geom_hline(yintercept = 0, col = "blue", size = 1)
+
+summary(lm(non_moral_decrease_understand ~crt_total*condition, und_IOED))
+
+
+##Linear Regression CRT + Condition- Decrease in Understanding for Moral Issues
+
+##Assumption Checks for Regression Analysis
+
+### Outliers
+data_mahal_dist <- revised_IOED3 %>% 
+  select(moral_decrease_understand, crt_total)
+
+data_mahal_dist$mahal <- mahalanobis(data_mahal_dist, colMeans(data_mahal_dist), cov(data_mahal_dist))
+
+data_mahal_dist$p <- pchisq(data_mahal_dist$mahal, df=1, lower.tail=FALSE)
+
+#Excluding outliers for Study 1 data does not change results. (when running w/o outliers, add "_wo" to data frame name)
+revised_IOED3_wo <- revised_IOED3 %>% 
+  filter(!participant_id %in% c(538, 242, 314))
+
+#Excluding outliers for Study 2 data does not change results. (when running w/o outliers, add "_wo" to data frame name)
+revised_IOED3_wo <- revised_IOED3 %>% 
+  filter(!participant_id %in% c(188, 15, 109, 639, 738))
+
+### Linear Relationship between Variables
+ggplot(revised_IOED3, aes(x = crt_total, y = moral_decrease_understand)) +
+  geom_point()
+
+### Normality of Residuals
+reg_model <- lm(moral_decrease_understand ~ crt_total, data = revised_IOED3)
+
+regression_points <- get_regression_points(reg_model)
+
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.5, color = "white") +
+  labs("Residual")
+
+### Equality of Variance of the Residuals
+ggplot(regression_points, aes(x = crt_total, y = residual)) +
+  geom_point() +
+  labs(x = "CRT score", y = "Residual") +
+  geom_hline(yintercept = 0, col = "blue", size = 1)
+
+summary(lm(moral_decrease_understand ~condition*crt_total, revised_IOED3))
+
+##Linear Regression CRT*Condition- Decrease in Understanding for Moral Issues (only with participants who understood mechanistic instructions)
+
+##Assumption Checks for Regression Analysis
+
+### Outliers
+data_mahal_dist <- und_IOED %>% 
+  select(moral_decrease_understand, crt_total)
+
+data_mahal_dist$mahal <- mahalanobis(data_mahal_dist, colMeans(data_mahal_dist), cov(data_mahal_dist))
+
+data_mahal_dist$p <- pchisq(data_mahal_dist$mahal, df=1, lower.tail=FALSE)
+
+### Linear Relationship between Variables
+ggplot(und_IOED, aes(x = crt_total, y = moral_decrease_understand)) +
+  geom_point()
+
+#Excluding outliers for Study 1 data does not change results. (when running w/o outliers, add "_wo" to data frame name)
+und_IOED_wo <- und_IOED %>% 
+  filter(!participant_id %in% c(242, 314, 552))
+
+#Excluding outliers for Study 2 data does not change results. (when running w/o outliers, add "_wo" to data frame name)
+und_IOED_wo <- und_IOED %>% 
+  filter(!participant_id %in% c(15, 639, 738, 109, 156))
+
+### Normality of Residuals
+reg_model <- lm(moral_decrease_understand ~ crt_total, data = und_IOED)
+
+regression_points <- get_regression_points(reg_model)
+
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.5, color = "white") +
+  labs("Residual")
+
+### Equality of Variance of the Residuals
+ggplot(regression_points, aes(x = crt_total, y = residual)) +
+  geom_point() +
+  labs(x = "CRT score", y = "Residual") +
+  geom_hline(yintercept = 0, col = "blue", size = 1)
+
+summary(lm(moral_decrease_understand ~condition*crt_total, und_IOED))
+
+##The Relationship Between Pre-explanation Understanding Ratings and CRT Scores (reported in Supplementary Materials)
+
+##Assumption Checks for Regression Analysis
+
+###Outliers
+data_mahal_dist <- revised_IOED3 %>% 
+  select(non_moral_pre_understand, crt_total)
+
+data_mahal_dist$mahal <- mahalanobis(data_mahal_dist, colMeans(data_mahal_dist), cov(data_mahal_dist))
+
+data_mahal_dist$p <- pchisq(data_mahal_dist$mahal, df=1, lower.tail=FALSE)
+
+#Excluding outliers for Study 2 data does not change results. No outliers in Study 1 data. (when running w/o outliers, add "_wo" to data frame name)
+revised_IOED3_wo <- revised_IOED3 %>% 
+  filter(!participant_id %in% c(188, 639))
+
+### Linear Relationship between Variables
+ggplot(revised_IOED3, aes(x = crt_total, y = non_moral_pre_understand)) +
+  geom_point()
+
+### Normality of Residuals
+reg_model <- lm(non_moral_pre_understand ~ crt_total, data = revised_IOED3)
+
+regression_points <- get_regression_points(reg_model)
+
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.5, color = "white") +
+  labs("Residual")
+
+### Equality of Variance of the Residuals
+ggplot(regression_points, aes(x = crt_total, y = residual)) +
+  geom_point() +
+  labs(x = "CRT score", y = "Residual") +
+  geom_hline(yintercept = 0, col = "blue", size = 1)
+
+summary(lm(non_moral_pre_understand ~crt_total, revised_IOED3))
+
+
+##Assumption Checks for Regression Analysis
+
+###Outliers
+data_mahal_dist <- revised_IOED3 %>% 
+  select(moral_pre_understand, crt_total)
+
+data_mahal_dist$mahal <- mahalanobis(data_mahal_dist, colMeans(data_mahal_dist), cov(data_mahal_dist))
+
+data_mahal_dist$p <- pchisq(data_mahal_dist$mahal, df=1, lower.tail=FALSE)
+
+#Excluding outliers for Study 1 data does not change results. (when running w/o outliers, add "_wo" to data frame name)
+revised_IOED3_wo <- revised_IOED3 %>% 
+  filter(!participant_id %in% c(242, 274))
+
+#Excluding outliers for Study 2 data does not change results. (when running w/o outliers, add "_wo" to data frame name)
+revised_IOED3_wo <- revised_IOED3 %>% 
+  filter(!participant_id %in% c(639, 188))
+
+### Linear Relationship between Variables
+ggplot(revised_IOED3, aes(x = crt_total, y = moral_pre_understand)) +
+  geom_point()
+
+### Normality of Residuals (violated)
+reg_model <- lm(moral_pre_understand ~ crt_total, data = revised_IOED3)
+
+regression_points <- get_regression_points(reg_model)
+
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.5, color = "white") +
+  labs("Residual")
+
+### Equality of Variance of the Residuals
+ggplot(regression_points, aes(x = crt_total, y = residual)) +
+  geom_point() +
+  labs(x = "CRT score", y = "Residual") +
+  geom_hline(yintercept = 0, col = "blue", size = 1)
+
+summary(lm(moral_pre_understand ~crt_total, revised_IOED3))
+
+### data transformation due violated assumption
+revised_IOED3_wo <- revised_IOED3_wo %>% 
+  mutate(log10_moral_pre_understand = log10(moral_pre_understand))
+
+### Equality of Variance of the Residuals
+ggplot(regression_points, aes(x = crt_total, y = residual)) +
+  geom_point() +
+  labs(x = "CRT score", y = "Residual") +
+  geom_hline(yintercept = 0, col = "blue", size = 1)
+
+summary(lm(log10_moral_pre_understand ~crt_total, revised_IOED3_wo))
+
+#FII
+##Linear Regression FII + Condition- Decrease in Understanding for Non-Moral Issues
+
+
+## Assumption Checks for Regression Analysis
+
+###Outliers
+data_mahal_dist <- revised_IOED3 %>% 
+  select(non_moral_decrease_understand, FII_mean)
+
+data_mahal_dist$mahal <- mahalanobis(data_mahal_dist, colMeans(data_mahal_dist), cov(data_mahal_dist))
+
+data_mahal_dist$p <- pchisq(data_mahal_dist$mahal, df=1, lower.tail=FALSE)
+
+#Excluding outliers for Study 1 data does not change results. (when running w/o outliers, add "_wo" to data frame name)
+revised_IOED3_wo <- revised_IOED3 %>% 
+  filter(!participant_id %in% c(254))
+
+#Excluding outliers for Study 2 data does not change results. (when running w/o outliers, add "_wo" to data frame name)
+revised_IOED3_wo <- revised_IOED3 %>% 
+  filter(!participant_id %in% c(97, 185, 109))
+
+### Linear Relationship between Variables
+ggplot(revised_IOED3, aes(x = FII_mean, y = non_moral_decrease_understand)) +
+  geom_point()
+
+### Normality of Residuals
+reg_model <- lm(non_moral_decrease_understand ~ FII_mean, data = revised_IOED3)
+
+get_regression_table(reg_model)
+regression_points <- get_regression_points(reg_model)
+
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.5, color = "white") +
+  labs("Residual")
+
+### Equality of Variance of the Residuals
+ggplot(regression_points, aes(x = FII_mean, y = residual)) +
+  geom_point() +
+  labs(x = "CRT score", y = "Residual") +
+  geom_hline(yintercept = 0, col = "blue", size = 1)
+
+summary(lm(non_moral_decrease_understand ~FII_mean * condition, revised_IOED3))
+
+##Linear Regression FII + Condition- Decrease in Understanding for Non-Moral Issues (only with participants who understood mechanistic instructions)
+
+## Assumption Checks for Regression Analysis
+
+###Outliers
+data_mahal_dist <- und_IOED %>% 
+  select(non_moral_decrease_understand, FII_mean)
+
+data_mahal_dist$mahal <- mahalanobis(data_mahal_dist, colMeans(data_mahal_dist), cov(data_mahal_dist))
+
+data_mahal_dist$p <- pchisq(data_mahal_dist$mahal, df=1, lower.tail=FALSE)
+
+#Excluding outliers for Study 1 data does not change results. (when running w/o outliers, add "_wo" to data frame name)
+und_IOED_wo <- und_IOED %>% 
+  filter(!participant_id %in% c(254))
+
+#Excluding outliers for Study 2 data does not change results. (when running w/o outliers, add "_wo" to data frame name)
+und_IOED_wo <- und_IOED %>% 
+  filter(!participant_id %in% c(97, 185, 109))
+
+### Linear Relationship between Variables
+ggplot(und_IOED, aes(x = FII_mean, y = non_moral_decrease_understand)) +
+  geom_point()
+
+### Normality of Residuals
+reg_model <- lm(non_moral_decrease_understand ~ FII_mean, data = und_IOED)
+
+regression_points <- get_regression_points(reg_model)
+
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.5, color = "white") +
+  labs("Residual")
+
+### Equality of Variance of the Residuals
+ggplot(regression_points, aes(x = FII_mean, y = residual)) +
+  geom_point() +
+  labs(x = "CRT score", y = "Residual") +
+  geom_hline(yintercept = 0, col = "blue", size = 1)
+
+summary(lm(non_moral_decrease_understand ~FII_mean *condition, und_IOED))
+
+##Linear Regression FII + Condition- Decrease in Understanding for Moral Issues
+
+## Assumption Checks for Regression Analysis
+
+###Outliers
+data_mahal_dist <- revised_IOED3 %>% 
+  select(moral_decrease_understand, FII_mean)
+
+data_mahal_dist$mahal <- mahalanobis(data_mahal_dist, colMeans(data_mahal_dist), cov(data_mahal_dist))
+
+data_mahal_dist$p <- pchisq(data_mahal_dist$mahal, df=1, lower.tail=FALSE)
+
+#Excluding outliers for Study 1 data does not change results. (when running w/o outliers, add "_wo" to data frame name)
+revised_IOED3_wo <- revised_IOED3 %>% 
+  filter(!participant_id %in% c(538, 242, 314))
+
+#Excluding outliers for Study 2 data does not change results. (when running w/o outliers, add "_wo" to data frame name)
+revised_IOED3_wo <- revised_IOED3 %>% 
+  filter(!participant_id %in% c(15, 109))
+
+### Linear Relationship between Variables
+ggplot(revised_IOED3, aes(x = FII_mean, y = moral_decrease_understand)) +
+  geom_point()
+
+### Normality of Residuals
+reg_model <- lm(moral_decrease_understand ~ FII_mean, data = revised_IOED3)
+
+regression_points <- get_regression_points(reg_model)
+
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.5, color = "white") +
+  labs("Residual")
+
+### Equality of Variance of the Residuals
+ggplot(regression_points, aes(x = FII_mean, y = residual)) +
+  geom_point() +
+  labs(x = "CRT score", y = "Residual") +
+  geom_hline(yintercept = 0, col = "blue", size = 1)
+
+summary(lm(moral_decrease_understand ~FII_mean *condition, revised_IOED3))
+
+##Linear Regression FII + Condition- Decrease in Understanding for Moral Issues (only with participants who understood mechanistic instructions)
+
+## Assumption Checks for Regression Analysis
+
+###Outliers
+data_mahal_dist <- und_IOED %>% 
+  select(moral_decrease_understand, FII_mean)
+
+data_mahal_dist$mahal <- mahalanobis(data_mahal_dist, colMeans(data_mahal_dist), cov(data_mahal_dist))
+
+data_mahal_dist$p <- pchisq(data_mahal_dist$mahal, df=1, lower.tail=FALSE)
+
+#Excluding outliers for Study 1 data does not change results. (when running w/o outliers, add "_wo" to data frame name)
+und_IOED_wo <- und_IOED %>% 
+  filter(!participant_id %in% c(242, 314))
+
+#Excluding outliers for Study 2 data does not change results. (when running w/o outliers, add "_wo" to data frame name)
+und_IOED_wo <- und_IOED %>% 
+  filter(!participant_id %in% c(15, 109))
+
+### Linear Relationship between Variables
+ggplot(und_IOED, aes(x = FII_mean, y = moral_decrease_understand)) +
+  geom_point()
+
+### Normality of Residuals
+reg_model <- lm(moral_decrease_understand ~ FII_mean, data = und_IOED)
+
+regression_points <- get_regression_points(reg_model)
+
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.5, color = "white") +
+  labs("Residual")
+
+### Equality of Variance of the Residuals
+ggplot(regression_points, aes(x = FII_mean, y = residual)) +
+  geom_point() +
+  labs(x = "CRT score", y = "Residual") +
+  geom_hline(yintercept = 0, col = "blue", size = 1)
+
+summary(lm(moral_decrease_understand ~FII_mean *condition, und_IOED))
+
