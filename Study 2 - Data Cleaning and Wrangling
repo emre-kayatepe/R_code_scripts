@@ -1,0 +1,592 @@
+# First Level Data Cleaning and Final Scoring ####
+
+
+#packages
+library(dplyr)
+library(tidyr)
+library(ids)
+library(psych)
+library(ggplot2)
+library(readxl)
+library(car)
+
+## Time 1 data ####
+
+# Importing dataset
+rawdata_T1 <- read.csv("rawdata_T1.csv")
+
+# Deleting first two redundant rows
+rawdata_T1 <- rawdata_T1[-c(1, 2),] # bunu yaptıktan sonra yazdırıp yeniden import et. Bu haliyle bütün değişkenler character. Yeniden
+# import edince otomatik düzeltiyor.
+write.csv(rawdata_T1,"deneme.csv")
+rawdata_T1 <- read.csv("deneme.csv")
+
+
+write.csv(rawdata_T1,"rawdata_T1.csv")
+rawdata_T1 <- read.csv("rawdata_T1.csv")
+
+#### After running the below 3 lines of code, you get the 465-P dataset.
+rawdata_T1 <- rawdata_T1 %>% 
+  distinct(guid, .keep_all = TRUE)
+
+rawdata_T1 <- rawdata_T1 %>%
+  filter(Finished == 1)
+
+rawdata_T1 <- rawdata_T1 %>% filter(grepl('ezon', Attention_Check2_6_TEXT, ignore.case = TRUE) & (Proverb_6 == 2))
+
+
+# Identifying participants who managed to take the survey second time
+b <- Çalışma_2b_Time_1_May_25_2024_18_31
+
+b2 <- b[-c(1, 2),]
+
+a2 <- a2 %>% 
+  distinct(guid, .keep_all = TRUE)
+
+a4 <- a2 %>% filter(grepl('ezon', Attention_Check2_6_TEXT, ignore.case = TRUE) & (Proverb_6 == 2))
+
+a4 <- a4 %>% 
+  rename(ResponseId_T2 = "ResponseId")
+
+a4 <- a4 %>% 
+  dplyr::select(ResponseId_T2)
+
+a5 <- rawdata_T2 %>% 
+  inner_join(a4, by = "ResponseId_T2")
+
+rawdata_T1 <- a2
+
+# Renaming some variables to drop redundant suffix
+rawdata_T1 <- rawdata_T1 %>% 
+  rename(Change1 = "Change1_45", Change1_2024 = "Change1_44", 
+         Change2 = "Change2_5", Change2_2024 = "Change2_4", 
+         Change3 = "Change3_5", Change3_2024 = "Change3_4", 
+         Change4 = "Change4_5", Change4_2024 = "Change4_4", 
+         Change5 = "Change5_5", Change5_2024 = "Change5_4", 
+         Change6 = "Change6_5", Change6_2024 = "Change6_4", 
+         Change7 = "Change7_5", Change7_2024 = "Change7_4", 
+         Change8 = "Change8_2", Change8_2024 = "Change8_1", 
+         Attention_Check1 = "Proverb_6", 
+         Proverb_6 = "Proverb_7", 
+         Proverb_7 = "Proverb_8", 
+         Proverb_8 = "Proverb_9", 
+         Proverb_9 = "Proverb_10", 
+         Proverb_10 = "Proverb_11", 
+         Poliorient = "Poliorient_1", 
+         Ladder_SES = "Ladder_SES_1", 
+         Religiosity = "Religiosity_1")
+
+# Adding "_T1" to all variable names to indicate Time 1 data
+colnames(rawdata_T1) <- paste(colnames(rawdata_T1),"T1",sep="_")
+
+# Excluding redundant variables
+rawdata_T1 <- rawdata_T1 %>% 
+  dplyr::select(-Status_T1, -RecipientLastName_T1, -RecipientFirstName_T1, -RecipientEmail_T1, -ExternalReference_T1, 
+         -LocationLatitude_T1, -LocationLongitude_T1, -DistributionChannel_T1, -UserLanguage_T1, -IPAddress_T1)
+
+# Excluding incomplete responses
+#those who did not complete
+incomplete <- rawdata_T1 %>% 
+  filter(Progress < 100)
+
+rawdata_T1 <- rawdata_T1 %>% 
+  filter(Finished == 1)
+
+complete_AT1_fail <- complete %>% 
+  filter(Proverb_6 != 2)
+
+complete_AT2_fail <- complete %>% 
+  filter(!(Attention_Check2_6_TEXT_T1 %in% c("sezon", "sezon ", "Sezon", "Sezon ", "SEZON", "SEZON ")))
+
+complete_AT1and2_fail <- complete_AT1_fail %>% 
+  inner_join(complete_AT2_fail, by = "ResponseId_T1")
+
+complete_AT1and2_fail_a <- complete_AT1and2_fail %>% 
+  select(Mail_T1.x, Mail_T1.y)
+
+incomplete_AT1_fail <- incomplete %>% 
+  filter(Attention_Check1_T1 != 2)
+
+incomplete_AT1 <- incomplete %>% 
+  select(Attention_Check1_T1)
+
+rawdata_T1 <- rawdata_T1 %>%
+  filter(Finished_T1 == 1)
+
+#Finding Duplicate IDs
+duplicated(rawdata_T1$guid_T1)
+sum(duplicated(rawdata_T1$guid_T1))
+
+duplicateT1 <- rawdata_T1 %>%
+  filter(guid_T1 == "b1318274d43146cd8fa3224375f29853")
+
+rawdata_T1 <- rawdata_T1 %>% 
+  distinct(guid_T1, .keep_all = TRUE)
+
+# Excluding participants who fail to pass the attention checks
+AT1_fails <- rawdata_T1 %>% 
+  filter((Attention_Check1_T1 != 2) %>% 
+           replace_na(TRUE))
+
+rawdata_T1 <- rawdata_T1 %>%
+  filter(Attention_Check1_T1 == 2)
+
+AT2_fails <- rawdata_T1 %>% 
+  filter((!(Attention_Check2_6_TEXT_T1 %in% c("sezon", "sezon ", "Sezon", "Sezon ", "SEZON", "SEZON "))) %>% 
+           replace_na(TRUE))
+
+AT2_fails %>% 
+  select(Attention_Check2_6_TEXT_T1)
+
+# Excluding participants who completed the survey in more than 4 hours
+too_long <- rawdata_T1 %>%
+  filter(Duration..in.seconds._T1 > 14400)
+
+describe(rawdata_T1$Duration..in.seconds._T1 / 60)
+
+ggplot(rawdata_T1, aes(x = Duration..in.seconds._T1 / 60)) +
+  geom_histogram(binwidth = 5, color = "white")
+
+# Exclude participants who rejected to participate in the study after reading the consent form.
+no_consent <- rawdata_T1 %>% 
+  filter(Consent_T1 == 0)
+
+rawdata_T1 <- rawdata_T1 %>% 
+  filter(Consent == 1)
+
+## Calculating the Final Scores ####
+
+### Triad Task ####
+
+#### Factoring Binary Responses #####
+rawdata_T1$Triad9_T1 <- factor(rawdata_T1$Triad9_T1, levels = c(1:2),
+                                  labels = c("thematic", "categorical"))
+
+rawdata_T1$Triad5_T1 <- factor(rawdata_T1$Triad5_T1, levels = c(1:2),
+                               labels = c("thematic", "categorical"))
+
+rawdata_T1$Triad3_T1 <- factor(rawdata_T1$Triad3_T1, levels = c(1:2),
+                               labels = c("thematic", "categorical"))
+
+rawdata_T1$Triad8_T1 <- factor(rawdata_T1$Triad8_T1, levels = c(1:2),
+                               labels = c("thematic", "categorical"))
+
+rawdata_T1$Triad1_T1 <- factor(rawdata_T1$Triad1_T1, levels = c(1:2),
+                               labels = c("thematic", "categorical"))
+
+rawdata_T1$Triad7_T1 <- factor(rawdata_T1$Triad7_T1, levels = c(1:2),
+                               labels = c("categorical", "thematic"))
+
+rawdata_T1$Triad6_T1 <- factor(rawdata_T1$Triad6_T1, levels = c(1:2),
+                               labels = c("categorical", "thematic"))
+
+rawdata_T1$Triad2_T1 <- factor(rawdata_T1$Triad2_T1, levels = c(1:2),
+                               labels = c("categorical", "thematic"))
+
+rawdata_T1$Triad10_T1 <- factor(rawdata_T1$Triad10_T1, levels = c(1:2),
+                               labels = c("categorical", "thematic"))
+
+rawdata_T1$Triad4_T1 <- factor(rawdata_T1$Triad4_T1, levels = c(1:2),
+                               labels = c("categorical", "thematic"))
+
+#### Creating Final Triad Scores #####
+text_cols = c("Triad1_T1", "Triad2_T1", "Triad3_T1", "Triad4_T1", "Triad5_T1", "Triad6_T1", "Triad7_T1", "Triad8_T1", "Triad9_T1", "Triad10_T1")
+
+rawdata_T1 <- rawdata_T1 %>% mutate(triad_categorical_n_T1 = rowSums(.[text_cols] == "categorical"), na.rm = TRUE)
+
+rawdata_T1 <- rawdata_T1 %>% mutate(triad_thematic_n_T1 = rowSums(.[text_cols] == "thematic"), na.rm = TRUE)
+
+rawdata_T1 <- rawdata_T1 %>% mutate(triad_T1 = triad_thematic_n_T1 - triad_categorical_n_T1)
+
+### Emotion Judgment Task ####
+
+rawdata_T1 <- rawdata_T1 %>% 
+  mutate(emotion_matched_sum_T1 = (Sad.Matched_1_T1 + Happy.Matched_1_T1 + Angry.Matched_1_T1) / 3)
+
+rawdata_T1 <- rawdata_T1 %>% 
+  mutate(emotion_Mismatched_sum_T1 = (Sad.Mismatched_1_T1 + Happy.Mismatched_1_T1 + Angry.Mismatched_1_T1) / 3)
+
+rawdata_T1 <- rawdata_T1 %>% 
+  mutate(emotion_judgment_T1 = emotion_matched_sum_T1 - emotion_Mismatched_sum_T1)
+
+rawdata_T1$emotion_judgment_T1 <- abs(rawdata_T1$emotion_judgment_T1)
+
+### Change Prediction Task ####
+
+###### Recoding Reverse Measurements #####
+rawdata_T1$Change2_T1 <- car::recode(rawdata_T1$Change2_T1, "1=7; 2=6; 3=5; 4=4; 5=3; 6=2; 7=1")
+rawdata_T1$Change3_T1 <- car::recode(rawdata_T1$Change3_T1, "1=7; 2=6; 3=5; 4=4; 5=3; 6=2; 7=1")
+rawdata_T1$Change4_T1 <- car::recode(rawdata_T1$Change4_T1, "1=7; 2=6; 3=5; 4=4; 5=3; 6=2; 7=1")
+rawdata_T1$Change6_T1 <- car::recode(rawdata_T1$Change6_T1, "1=7; 2=6; 3=5; 4=4; 5=3; 6=2; 7=1")
+
+change_scale_T1 <- c("Change1_T1", "Change2_T1", "Change3_T1", "Change4_T1", "Change5_T1", "Change6_T1", 
+                     "Change7_T1", "Change8_T1")
+
+rawdata_T1 <- rawdata_T1 %>% 
+  mutate(change_T1 = rowMeans(rawdata_T1[ ,change_scale_T1], na.rm = TRUE))
+
+### Proverb Task ####
+
+proverb_scale_T1 <- c("Proverb_1_T1", "Proverb_2_T1", "Proverb_3_T1", "Proverb_4_T1", "Proverb_5_T1", "Proverb_6_T1", 
+                     "Proverb_7_T1", "Proverb_8_T1", "Proverb_9_T1", "Proverb_10_T1")
+
+rawdata_T1 <- rawdata_T1 %>% 
+  mutate(proverb_T1 = rowMeans(rawdata_T1[ ,proverb_scale_T1], na.rm = TRUE))
+
+### Inclusion Task ####
+
+rawdata_T1 <- rawdata_T1 %>% 
+  mutate(inclusion_T1 = (97 - SC0_T1) / 97)
+
+### Social Conflicts Task (SCT) ####
+
+# Preparing the SCT statements for coding
+conflicts_T1 <- rawdata_T1 %>% 
+  select(Conflict1_T1, Conflict2_T1, ResponseId_T1)
+
+conflicts_T1 <- conflicts_T1 %>% 
+  pivot_longer(names_to = "Conflicts", 
+               values_to = "Statements", 
+               cols = -ResponseId_T1)
+
+#Creating the Dataset for coding.
+write.csv(conflicts_T1,"C:\\Users\\PC\\OneDrive - Kadir Has University\\Devam Eden Çalışmalar\\Çalışma 2b\\conflicts_T1.csv") #Convert this .csv to excel
+#for coding.
+
+#After coding, convert it to .csv and import it.
+conflicts_T1 <- read.csv("C:/Users/PC/OneDrive - Kadir Has University/Devam Eden Çalışmalar/Çalışma 2/conflicts_T1.csv")
+
+conflicts_T1 <- conflicts_T1_coder1 %>% 
+  inner_join(conflicts_T1_coder2, by = "...1")
+
+conflicts_T1 <- conflicts_T1 %>% 
+  select(...1, ResponseId_T1.x, Statements.x, Conflicts.x, Coder1_Dialecticality, Coder2_Dialecticality)
+
+conflicts_T1 <- conflicts_T1 %>% 
+  mutate(unmatched1 = Coder1_Dialecticality + Coder2_Dialecticality)
+
+library(summarytools)
+summarytools::freq(conflicts_T1$unmatched1)
+
+write.csv(conflicts_T1, "conflicts_T1.csv")
+
+#burada piot_wider ile datayı eski düzenine getirip, rawdata ile merge edip aşağıdaki final skoru oluştur.
+
+a <- conflicts_T1 %>% 
+  group_by(ResponseId_T1.x) %>% 
+  mutate(soc_conflicts_T1 = sum(dialecticality_T1))
+
+a <- a %>% 
+  dplyr::select(ResponseId_T1.x, soc_conflicts_T1) %>% 
+  distinct()
+
+summarytools::freq(a$soc_conflicts_T1)
+
+a <- a %>% 
+  rename(ResponseId_T1 = "ResponseId_T1.x")
+
+rawdata_T1 <- rawdata_T1 %>% 
+  inner_join(a, by = "ResponseId_T1")
+
+#Exclude open-ended responses from data
+rawdata_T1 <- rawdata_T1 %>% 
+  dplyr::select(-Conflict1_T1, -Conflict2_T1)
+
+
+
+
+
+
+## Time 2 data ####
+
+# Importing dataset
+rawdata_T2 <- read.csv("rawdata_T2.csv")
+
+# Deleting first two redundant rows
+rawdata_T2 <- rawdata_T2[-c(1, 2),] # bunu yaptıktan sonra yazdırıp yeniden import et. Bu haliyle bütün değişkenler character. Yeniden
+# import edince otomatik düzeltiyor.
+write.csv(rawdata_T2,"deneme.csv")
+rawdata_T2 <- read.csv("deneme.csv")
+
+write.csv(rawdata_T2,"rawdata_T2.csv")
+rawdata_T2 <- read.csv("rawdata_T2.csv")
+
+#### After running the below 3 lines of code, you get the 364-P dataset.
+rawdata_T2 <- rawdata_T2 %>% 
+  distinct(guid, .keep_all = TRUE)
+
+rawdata_T2 <- rawdata_T2 %>%
+  filter(Finished == 1)
+
+rawdata_T2 <- rawdata_T2 %>% filter(grepl('ezon', Attention_Check2_6_TEXT, ignore.case = TRUE) & (Proverb_6 == 2))
+
+# Age difference check across Time 1 and Time 2. After below steps you get the 312-P dataset.
+data_T1 <- data_T1 %>% 
+  rename(guid = "guid_T1")
+
+data_T1 <- data_T1 %>% 
+  dplyr::select(guid, Age_T1)
+
+rawdata_T2 <- data_T1 %>% 
+  inner_join(rawdata_T2, by = "guid")
+
+rawdata_T2 <- rawdata_T2 %>% 
+  mutate(age_diff = Age - Age_T1)
+
+rawdata_T2 <- rawdata_T2 %>%  
+  filter((age_diff >= -1 & age_diff <= 1) %>% 
+           replace_na(TRUE))
+
+# Renaming some variables to drop redundant suffix
+rawdata_T2 <- rawdata_T2 %>% 
+  rename(Change1 = "Change1_45", Change1_2024 = "Change1_44", 
+         Change2 = "Change2_5", Change2_2024 = "Change2_4", 
+         Change3 = "Change3_5", Change3_2024 = "Change3_4", 
+         Change4 = "Change4_5", Change4_2024 = "Change4_4", 
+         Change5 = "Change5_5", Change5_2024 = "Change5_4", 
+         Change6 = "Change6_5", Change6_2024 = "Change6_4", 
+         Change7 = "Change7_5", Change7_2024 = "Change7_4", 
+         Change8 = "Change8_2", Change8_2024 = "Change8_1", 
+         Attention_Check1 = "Proverb_6", 
+         Proverb_6 = "Proverb_7", 
+         Proverb_7 = "Proverb_8", 
+         Proverb_8 = "Proverb_9", 
+         Proverb_9 = "Proverb_10", 
+         Proverb_10 = "Proverb_11", 
+         Poliorient = "Poliorient_1", 
+         Ladder_SES = "Ladder_SES_1", 
+         Religiosity = "Religiosity_1")
+
+# Adding "_T2" to all variable names to indicate Time 1 data
+colnames(rawdata_T2) <- paste(colnames(rawdata_T2),"T2",sep="_")
+
+# Excluding redundant variables
+rawdata_T2 <- rawdata_T2 %>% 
+  dplyr::select(-Status_T2, -RecipientLastName_T2, -RecipientFirstName_T2, -RecipientEmail_T2, -ExternalReference_T2, 
+         -LocationLatitude_T2, -LocationLongitude_T2, -DistributionChannel_T2, -UserLanguage_T2, -IPAddress_T2)
+
+# Excluding participants who completed the survey in more than 4 hours
+too_long <- rawdata_T2 %>%
+  filter(Duration..in.seconds._T2 > 14400)
+
+describe(rawdata_T2$Duration..in.seconds._T2 / 60)
+
+ggplot(rawdata_T2, aes(x = Duration..in.seconds._T2 / 60)) +
+  geom_histogram(binwidth = 5, color = "white")
+
+# Exclude participants who rejected to participate in the study after reading the consent form.
+no_consent <- rawdata_T2 %>% 
+  filter(Consent == 0)
+
+rawdata_T2 <- a2 %>% 
+  filter(Consent == 1)
+
+## Calculating the Final Scores ####
+
+### Triad Task ####
+
+#### Factoring Binary Responses #####
+rawdata_T2$Triad9_T2 <- factor(rawdata_T2$Triad9_T2, levels = c(1:2),
+                               labels = c("thematic", "categorical"))
+
+rawdata_T2$Triad5_T2 <- factor(rawdata_T2$Triad5_T2, levels = c(1:2),
+                               labels = c("thematic", "categorical"))
+
+rawdata_T2$Triad3_T2 <- factor(rawdata_T2$Triad3_T2, levels = c(1:2),
+                               labels = c("thematic", "categorical"))
+
+rawdata_T2$Triad8_T2 <- factor(rawdata_T2$Triad8_T2, levels = c(1:2),
+                               labels = c("thematic", "categorical"))
+
+rawdata_T2$Triad1_T2 <- factor(rawdata_T2$Triad1_T2, levels = c(1:2),
+                               labels = c("thematic", "categorical"))
+
+rawdata_T2$Triad7_T2 <- factor(rawdata_T2$Triad7_T2, levels = c(1:2),
+                               labels = c("categorical", "thematic"))
+
+rawdata_T2$Triad6_T2 <- factor(rawdata_T2$Triad6_T2, levels = c(1:2),
+                               labels = c("categorical", "thematic"))
+
+rawdata_T2$Triad2_T2 <- factor(rawdata_T2$Triad2_T2, levels = c(1:2),
+                               labels = c("categorical", "thematic"))
+
+rawdata_T2$Triad10_T2 <- factor(rawdata_T2$Triad10_T2, levels = c(1:2),
+                                labels = c("categorical", "thematic"))
+
+rawdata_T2$Triad4_T2 <- factor(rawdata_T2$Triad4_T2, levels = c(1:2),
+                               labels = c("categorical", "thematic"))
+
+#### Creating Final Triad Scores #####
+text_cols = c("Triad1_T2", "Triad2_T2", "Triad3_T2", "Triad4_T2", "Triad5_T2", "Triad6_T2", "Triad7_T2", "Triad8_T2", "Triad9_T2", "Triad10_T2")
+
+rawdata_T2 <- rawdata_T2 %>% mutate(triad_categorical_n_T2 = rowSums(.[text_cols] == "categorical"), na.rm = TRUE)
+
+rawdata_T2 <- rawdata_T2 %>% mutate(triad_thematic_n_T2 = rowSums(.[text_cols] == "thematic"), na.rm = TRUE)
+
+rawdata_T2 <- rawdata_T2 %>% mutate(triad_T2 = triad_thematic_n_T2 - triad_categorical_n_T2)
+
+### Emotion Judgement Task ####
+
+rawdata_T2 <- rawdata_T2 %>% 
+  mutate(emotion_matched_sum_T2 = (Sad.Matched_1_T2 + Happy.Matched_1_T2 + Angry.Matched_1_T2) / 3)
+
+rawdata_T2 <- rawdata_T2 %>% 
+  mutate(emotion_Mismatched_sum_T2 = (Sad.Mismatched_1_T2 + Happy.Mismatched_1_T2 + Angry.Mismatched_1_T2) / 3)
+
+rawdata_T2 <- rawdata_T2 %>% 
+  mutate(emotion_judgment_T2 = emotion_matched_sum_T2 - emotion_Mismatched_sum_T2)
+
+rawdata_T2$emotion_judgment_T2 <- abs(rawdata_T2$emotion_judgment_T2)
+
+### Change Prediction Task ####
+
+###### Recoding Reverse Measurements #####
+rawdata_T2$Change2_T2 <- car::recode(rawdata_T2$Change2_T2, "1=7; 2=6; 3=5; 4=4; 5=3; 6=2; 7=1")
+rawdata_T2$Change3_T2 <- car::recode(rawdata_T2$Change3_T2, "1=7; 2=6; 3=5; 4=4; 5=3; 6=2; 7=1")
+rawdata_T2$Change4_T2 <- car::recode(rawdata_T2$Change4_T2, "1=7; 2=6; 3=5; 4=4; 5=3; 6=2; 7=1")
+rawdata_T2$Change6_T2 <- car::recode(rawdata_T2$Change6_T2, "1=7; 2=6; 3=5; 4=4; 5=3; 6=2; 7=1")
+
+change_scale_T2 <- c("Change1_T2", "Change2_T2", "Change3_T2", "Change4_T2", "Change5_T2", "Change6_T2", 
+                     "Change7_T2", "Change8_T2")
+
+rawdata_T2 <- rawdata_T2 %>% 
+  mutate(change_T2 = rowMeans(rawdata_T2[ ,change_scale_T2], na.rm = TRUE))
+
+### Proverb Task ####
+
+proverb_scale_T2 <- c("Proverb_1_T2", "Proverb_2_T2", "Proverb_3_T2", "Proverb_4_T2", "Proverb_5_T2", "Proverb_6_T2", 
+                      "Proverb_7_T2", "Proverb_8_T2", "Proverb_9_T2", "Proverb_10_T2")
+
+rawdata_T2 <- rawdata_T2 %>% 
+  mutate(proverb_T2 = rowMeans(rawdata_T2[ ,proverb_scale_T2], na.rm = TRUE))
+
+### Inclusion Task ####
+
+rawdata_T2 <- rawdata_T2 %>% 
+  mutate(inclusion_T2 = (97 - SC0_T2) / 97)
+
+### Social Conflicts Task (SCT) ####
+
+# Preparing the SCT statements for coding
+conflicts_T2 <- rawdata_T2 %>% 
+  select(Conflict1_T2, Conflict2_T2, ResponseId_T2)
+
+conflicts_T2 <- conflicts_T2 %>% 
+  pivot_longer(names_to = "Number", 
+               values_to = "Statement", 
+               cols = -ResponseId_T2)
+
+#Creating the Dataset for SCT coding.
+write.csv(conflicts_T2,"conflicts_T2.csv") #Convert this .csv to excel
+#for TST coding.
+
+#After coding, convert it to .csv and import it.
+conflicts_T2 <- read.csv("conflicts_T2.csv")
+
+#After coding, convert it to .csv and import it.
+conflicts_T2_coder2 <- conflicts_T2_coder2 %>% 
+  rename(Coder2_Dialecticality = "Dialecticality")
+
+conflicts_T2_coder2 <- conflicts_T2_coder2 %>% 
+  rename(Conflict = "Number")
+
+conflicts_T2 <- conflicts_T2_coder1 %>% 
+  inner_join(conflicts_T2_coder2, by = "...1")
+
+conflicts_T2 <- conflicts_T2 %>% 
+  select(...1, ResponseId_T2.x, Statement.x, Conflicts, Coder1_Dialecticality, Coder2_Dialecticality)
+
+conflicts_T2 <- conflicts_T2 %>% 
+  mutate(unmatched1 = Coder1_Dialecticality + Coder2_Dialecticality)
+
+library(summarytools)
+summarytools::freq(conflicts_T2$unmatched1)
+
+write.csv(conflicts_T2, "conflicts_T2.csv")
+
+#burada piot_wider ile datayı eski düzenine getirip, rawdata ile merge edip aşağıdaki final skoru oluştur.
+
+a <- conflicts_T2 %>% 
+  group_by(ResponseId_T2.x) %>% 
+  mutate(soc_conflicts_T2 = sum(Dialecticality_T2))
+
+a <- a %>% 
+  dplyr::select(ResponseId_T2.x, soc_conflicts_T2) %>% 
+  distinct()
+
+summarytools::freq(a$soc_conflicts_T2)
+
+a <- a %>% 
+  rename(ResponseId_T2 = "ResponseId_T2.x")
+
+rawdata_T2 <- rawdata_T2 %>% 
+  inner_join(a, by = "ResponseId_T2")
+
+#Exclude open-ended responses from data
+rawdata_T2 <- rawdata_T2 %>% 
+  dplyr::select(-Conflict1_T2, -Conflict2_T2)
+
+
+## Converting numerically coded categorical variables to factor variables for Time 1 and Time 2 #####
+
+#Gender
+rawdata_T1$Gender_T1 <- factor(rawdata_T1$Gender_T1, levels = c(1:3), 
+                               labels = c("female",  "male", "other"))
+
+rawdata_T2$Gender_T2 <- factor(rawdata_T2$Gender_T2, levels = c(1:3), 
+                               labels = c("female",  "male", "other"))
+
+#Political View
+rawdata_T1 <- rawdata_T1 %>% 
+  rename(pol_ideology_T1 = Political_View_T1)
+
+rawdata_T1$pol_ideology_T1 <- factor(rawdata_T1$pol_ideology_T1, levels = c(1:10),
+                                     labels = c("social democrat", "kemalist", "socialist", "conservative democrat", "liberal", "islamist", 
+                                                "apolitical", "ultra-nationalist", "other", "nationalist"))
+
+rawdata_T2 <- rawdata_T2 %>% 
+  rename(pol_ideology_T2 = Political_View_T2)
+
+rawdata_T2$pol_ideology_T2 <- factor(rawdata_T2$pol_ideology_T2, levels = c(1:10), 
+                                     labels = c("social democrat", "kemalist", "socialist", "conservative democrat", "liberal", "islamist", 
+                                                "apolitical", "ultra-nationalist", "other", "nationalist"))
+
+#Education
+rawdata_T1$Education_T1 <- factor(rawdata_T1$Education_T1, levels = c(1:8),
+                                  labels = c("literacy", "primary school", "high school", "vocational high school", "undergraduate student", 
+                                             "bachelor's degree", "graduate student", "graduate degree"))
+
+rawdata_T2$Education_T2 <- factor(rawdata_T2$Education_T2, levels = c(1:8),
+                                  labels = c("literacy", "primary school", "high school", "vocational high school", "undergraduate student", 
+                                             "bachelor's degree", "graduate student", "graduate degree"))
+
+#Income
+rawdata_T1$Income_T1 <- factor(rawdata_T1$Income_T1, levels = c(1:5),
+                               labels = c("very good", "good", "not bad", "bad", "very bad"))
+
+rawdata_T2$Income_T2 <- factor(rawdata_T2$Income_T2, levels = c(1:5),
+                               labels = c("very good", "good", "not bad", "bad", "very bad"))
+#Religion
+rawdata_T1$Religion_T1 <- factor(rawdata_T1$Religion_T1, levels = c(1:4),
+                                 labels = c("atheist", "theist", "muslim", "other"))
+
+rawdata_T2$Religion_T2 <- factor(rawdata_T2$Religion_T2, levels = c(1:4),
+                                 labels = c("atheist", "theist", "muslim", "other"))
+
+#Longest inhabited place
+rawdata_T1$Place_T1 <- factor(rawdata_T1$Place_T1, levels = c(1:5),
+                              labels = c("metropolis", "city", "town", "small town", "village"))
+
+rawdata_T2$Place_T2 <- factor(rawdata_T2$Place_T2, levels = c(1:5),
+                              labels = c("metropolis", "city", "town", "small town", "village"))
+
+#Ethnicity
+rawdata_T1$Ethnicity_T1 <- factor(rawdata_T1$Ethnicity_T1, levels = c(1:8),
+                                  labels = c("Turkish", "Kurdish", "Armenian", "Greek", "Arabic", "People of Caucasus Mountains", "Balkan", "Other"))
+
+rawdata_T2$Ethnicity_T2 <- factor(rawdata_T2$Ethnicity_T2, levels = c(1:8), 
+                                  labels = c("Turkish", "Kurdish", "Armenian", "Greek", "Arabic", "People of Caucasus Mountains", "Balkan", "Other"))
+
+# Create the final datasets
+write.csv(rawdata_T1,"data_T1.csv")
+write.csv(rawdata_T2,"data_T2.csv")
