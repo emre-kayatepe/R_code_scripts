@@ -13,3 +13,803 @@ library(readxl)
 
 # Importing dataset
 rawdata_T1 <- read.csv("rawdata_T1.csv")
+
+# Deleting first two redundant rows
+rawdata_T1 <- rawdata_T1[-c(1, 2),] # bunu yaptıktan sonra yazdırıp yeniden import et. Bu haliyle bütün değişkenler character. Yeniden
+                                    # import edince otomatik düzeltiyor.
+
+write.csv(rawdata_T1,"C:\\Users\\PC\\OneDrive - Kadir Has University\\Devam Eden Çalışmalar\\Çalışma 2a\\rawdata_T1.csv")
+rawdata_T1 <- read.csv("C:\\Users\\PC\\OneDrive - Kadir Has University\\Devam Eden Çalışmalar\\Çalışma 2a\\rawdata_T1.csv")
+
+# IAE datası
+iae_data <- iae_data[-c(1),]
+
+response_ids <- iae_data %>% 
+  select(...9)
+
+response_ids <- response_ids %>% 
+  rename("ResponseId" = response_id)
+
+rawdata_T1 <- rawdata_T1 %>% 
+  inner_join(response_ids, by = "ResponseId")
+
+#Identifying participants who managed to take the survey second time
+c <- rawdata_T1 %>% 
+  distinct(USID_T1, .keep_all = TRUE)
+
+# Renaming some variables to drop redundant suffix
+rawdata_T1 <- rawdata_T1 %>% 
+  rename(Pers_1 = "Pers_1_1", Pers_2 = "Pers_2_1", Pers_3 = "Pers_3_1", Pers_4 = "Pers_4_1", Pers_5 = "Pers_5_1", Pers_6 = "Pers_6_1", Pers_7 = "Pers_7_1", 
+         Pers_8 = "Pers_8_1", Pers_9 = "Pers_9_1", Pers_10 = "Pers_10_1", Poliorient = "Poliorient_1", Ladder_SES = "Ladder_SES_1", 
+         Religiosity = "Religiosity_1")
+
+# Adding "_T1" to all variable names to indicate Time 1 data
+colnames(rawdata_T1) <- paste(colnames(rawdata_T1),"T1",sep="_")
+
+# Excluding redundant variables
+rawdata_T1 <- rawdata_T1 %>% 
+  dplyr::select(-Status_T1, -RecipientLastName_T1, -RecipientFirstName_T1, -RecipientEmail_T1, -ExternalReference_T1, 
+         -LocationLatitude_T1, -LocationLongitude_T1, -DistributionChannel_T1, -UserLanguage_T1)
+
+# Excluding incomplete responses
+#those who did not complete
+incomplete <- rawdata_T1 %>% 
+  filter(Progress_T1 < 100)
+
+complete <- rawdata_T1 %>% 
+  filter(Finished_T1 == 1)
+
+complete_AT1_fail <- complete %>% 
+  filter(Attention_Check1_T1 != 63)
+
+complete_AT2_fail <- complete %>% 
+  filter(!(Attention_Check2_6_TEXT_T1 %in% c("sezon", "sezon ", "Sezon", "Sezon ", "SEZON", "SEZON ")))
+
+complete_AT1and2_fail <- complete_AT1_fail %>% 
+  inner_join(complete_AT2_fail, by = "ResponseId_T1")
+
+complete_AT1and2_fail_a <- complete_AT1and2_fail %>% 
+  select(Mail_T1.x, Mail_T1.y)
+
+incomplete_AT1_fail <- incomplete %>% 
+  filter(Attention_Check1_T1 != 63)
+
+incomplete_AT1 <- incomplete %>% 
+  select(Attention_Check1_T1)
+
+rawdata_T1 <- rawdata_T1 %>%
+  filter(Finished_T1 == 1)
+
+# Excluding participants who fail to pass the attention checks
+a <- rawdata_T1 %>% filter(grepl('ezon', Attention_Check2_6_TEXT_T1, ignore.case = TRUE) & (Attention_Check1_T1 == 63))
+
+AT1_fails <- rawdata_T1 %>% 
+  filter((Attention_Check1 != 63) %>% 
+  replace_na(TRUE))
+
+rawdata_T1 <- rawdata_T1 %>%
+  filter(Attention_Check1 == 63)
+
+sezon <- rawdata_T1 %>% 
+  filter((Attention_Check2_6_TEXT_T1 != "sezon") & (Attention_Check2_6_TEXT_T1 != "Sezon"))
+
+AT2_fails <- rawdata_T1 %>% 
+  filter((!(Attention_Check2_6_TEXT %in% c("sezon", "sezon ", "Sezon", "Sezon ", "SEZON", "SEZON "))) %>% 
+           replace_na(TRUE))
+
+AT2_fails %>% 
+  select(Attention_Check2_6_TEXT_T1)
+
+AT1and2_fails <- rawdata_T1 %>%
+  filter((!(Attention_Check2_6_TEXT_T1 %in% c("sezon", "sezon ", "Sezon", "Sezon ", "SEZON", "SEZON ")) | (Attention_Check1_T1 != 63)))
+
+rawdata_T1 <- rawdata_T1 %>%
+  filter((Attention_Check2_6_TEXT_T1 %in% c("sezon", "sezon ", "Sezon", "Sezon ", "SEZON", "SEZON ")))
+
+#bot detection
+bot <- rawdata_T1 %>% 
+  filter(Q_RelevantIDFraudScore_T1 > 30)
+
+rawdata_T1 <- rawdata_T1 %>% 
+  filter((Q_RecaptchaScore_T1 > 0.5) %>% 
+  replace_na(TRUE))
+
+#duplicates
+duplicate <- rawdata_T1 %>% 
+  filter(Q_RelevantIDDuplicate_T1 == "true")
+
+rawdata_T1 <- rawdata_T1 %>% 
+  filter(Q_RelevantIDDuplicate_T1 != "true")
+
+duplicate_mail <- duplicate %>% 
+  inner_join(rawdata_T12, by = "Mail_T1")
+
+duplicate_mail <- duplicate_mail %>% 
+  select(Mail_T1)
+
+rawdata_T1 <- rawdata_T1 %>% 
+  filter(Q_RelevantIDDuplicate_T1 != "true")
+
+# Excluding participants who completed the survey in more than 4 hours
+too_long <- rawdata_T1 %>%
+  filter(Duration..in.seconds._T1 > 14400)
+
+describe(rawdata_T1$Duration..in.seconds._T1 / 60)
+
+ggplot(rawdata_T1, aes(x = Duration..in.seconds._T1 / 60)) +
+  geom_histogram(binwidth = 5, color = "white")
+
+# Exclude participants who rejected to participate in the study after reading the consent form.
+rawdata_T1 <- rawdata_T1 %>% 
+  filter(Consent_T1 == 1)
+
+no_consent <- rawdata_T1 %>% 
+  filter(`Consent_T1` == 0)
+
+# Generating a random ID for each participant since response IDs of Time 1 and Time 2 will be different. This ID will also be used in Time 2 data.
+participant_id <- ids::random_id(552, 8)
+rawdata_T1 <- cbind(rawdata_T1, participant_id)
+
+participant_id <- rawdata_T1 %>% 
+  select(participant_id, Mail_T1) %>% 
+  rename(mail = Mail_T1)
+
+write.csv(participant_id,"C:\\Users\\PC\\OneDrive - Kadir Has University\\Devam Eden Çalışmalar\\Çalışma 2a\\participant_id.csv")
+write.csv(rawdata_T1,"C:\\Users\\PC\\OneDrive - Kadir Has University\\Devam Eden Çalışmalar\\Çalışma 2a\\rawdata_T1.csv")
+
+
+
+## Calculating the Final Scores ####
+
+### Inclusion Task ####
+rawdata_T1 <- rawdata_T1 %>% 
+  mutate(inclusion_T1 = (97 - SC0_T1) / 97)
+
+### Change Task ####
+change_scale_T1 <- c("Change_Sc_1_T1", "Change_Sc_2_T1", "Change_Sc_3_T1", "Change_Sc_4_T1", "Change_Sc_5_T1", "Change_Sc_6_T1", 
+                     "Change_Sc_7_T1", "Change_Sc_8_T1")
+
+rawdata_T1 <- rawdata_T1 %>% 
+  mutate(change_T1 = rowMeans(rawdata_T1[ ,change_scale_T1], na.rm = TRUE))
+
+rawdata_T1 <- rawdata_T1 %>% 
+  mutate(change_T1 = change_T1 / 10)
+
+### TST Coding ####
+
+# Preparing the TST statement for coding
+TST_T1 <- rawdata_T1 %>% 
+  select(starts_with("State"), ResponseId_T1)
+
+TST_T1 <- TST_T1 %>% 
+  pivot_longer(names_to = "Number", 
+               values_to = "Statement", 
+               cols = -ResponseId_T1)
+
+#Creating the Dataset for TST coding.
+write.csv(TST_T1,"C:\\Users\\PC\\OneDrive - Kadir Has University\\Devam Eden Çalışmalar\\Çalışma 2a\\TST_T1.csv") #Convert this .csv to excel
+                                                                                                                        #for TST coding.
+#After coding, convert it to .csv and import it.
+TST_T1 <- read.csv("C:/Users/PC/OneDrive - Kadir Has University/Devam Eden Çalışmalar/Çalışma 2a Pilot/TST_T1.csv")
+
+
+#Counting invalid statements
+  TST_T1_NAs <- TST_T1_joined %>% 
+  group_by(ResponseId_T1.x) %>% 
+  filter(`abstract/contextual` == -1, .preserve = TRUE) %>% 
+    count() %>% 
+    rename(TST_T1_NAs = n)
+
+  TST_T1_joined <- TST_T1_joined %>% 
+    inner_join(TST_T1_NAs, by = "ResponseId_T1.x")
+
+#Counting Abstract statements
+TST_T1_abstract <- TST_T1_joined %>% 
+    group_by(ResponseId_T1.x) %>% 
+    filter(`abstract/contextual` == 1, .preserve = TRUE) %>% 
+    count() %>% 
+    rename(TST_T1_abstract = n)
+  
+TST_T1_joined <- TST_T1_joined %>% 
+  inner_join(TST_T1_abstract, by = "ResponseId_T1.x")
+
+TST_T1_scores <- TST_T1_NAs %>% 
+  inner_join(TST_T1_abstract, by = "ResponseId_T1.x")
+
+#Counting Contextual statements
+TST_T1_contextual <- TST_T1_joined %>% 
+  group_by(ResponseId_T1.x) %>% 
+  filter(`abstract/contextual` == 0, .preserve = TRUE) %>% 
+  count() %>% 
+  rename(TST_T1_contextual = n)
+
+TST_T1_joined <- TST_T1_joined %>% 
+  inner_join(TST_T1_contextual, by = "ResponseId_T1.x")
+
+TST_T1_scores <- TST_T1_scores %>% 
+  inner_join(TST_T1_contextual, by = "ResponseId_T1.x")
+
+#participants to be excluded due to 9 or 10 invalid statements
+TST_T1_exclusion <- TST_T1_scores %>% 
+  filter(TST_T1_NAs > 8)
+
+TST_T1_scores <- TST_T1_scores %>% 
+  filter(TST_T1_NAs <= 8)
+
+TST_T1_exclusion_mails <- rawdata_T1 %>% 
+  filter(ResponseId_T1 %in% c("R_2rC64Yt0YX9ueGQ", "R_2ronFCYlow54kCo", "R_2z5PsOnpI9ccPjl", "R_3MDuQnIO0Ria35I", "R_qIuKTVBeONvMfPr", "R_qxqsb4xbPsV7GA9", 
+                               "R_UrKMcLMlxhUjQWt")) %>% 
+  select(Mail_T1)
+
+write.csv(TST_T1_exclusion_mails,"C:\\Users\\PC\\OneDrive - Kadir Has University\\Devam Eden Çalışmalar\\Çalışma 2a\\TST_T1_exclusion_mails.csv")
+
+
+#Calculating final TST scores.
+
+TST_T1_scores <- TST_T1_scores %>% 
+  mutate(TST_T1 = TST_T1_contextual / 10)
+
+TST_T1_scores <- TST_T1_scores %>%
+  rename(ResponseId_T1 = "ResponseId_T1.x")
+
+rawdata_T1 <- rawdata_T1 %>% 
+  inner_join(TST_T1_scores, by = "ResponseId_T1")
+
+
+### Memory Coding (Outside-in Task) ####
+
+out_in_T1 <- rawdata_T1 %>% 
+  select(starts_with("Memory"), starts_with("Pers"), ResponseId_T1, participant_id)
+
+write.csv(out_in_T1,"C:\\Users\\PC\\OneDrive - Kadir Has University\\Devam Eden Çalışmalar\\Çalışma 2a\\out_in_T1.csv") #excel'e çevir.
+
+                                                                                                         #Kodlama sonrası csv'e çevir import et.
+
+out_in_T1 <- read_excel("out_in_T1_plus1.xlsx")
+
+out_in_T1 %>% 
+  count(Memory_2_c_T1)
+
+out_in_T1 %>% 
+  count(Pers_2_T1)
+
+#converting invalid perspective ratings into NA values
+out_in_T1$Pers_1_T1 <- replace(out_in_T1$Pers_1_T1, out_in_T1$Memory_1_c_T1 == 0, NA)
+out_in_T1$Pers_2_T1 <- replace(out_in_T1$Pers_2_T1, out_in_T1$Memory_2_c_T1 == 0, NA)
+out_in_T1$Pers_3_T1 <- replace(out_in_T1$Pers_3_T1, out_in_T1$Memory_3_c_T1 == 0, NA)
+out_in_T1$Pers_4_T1 <- replace(out_in_T1$Pers_4_T1, out_in_T1$Memory_4_c_T1 == 0, NA)
+out_in_T1$Pers_5_T1 <- replace(out_in_T1$Pers_5_T1, out_in_T1$Memory_5_c_T1 == 0, NA)
+out_in_T1$Pers_6_T1 <- replace(out_in_T1$Pers_6_T1, out_in_T1$Memory_6_c_T1 == 0, NA)
+out_in_T1$Pers_7_T1 <- replace(out_in_T1$Pers_7_T1, out_in_T1$Memory_7_c_T1 == 0, NA)
+out_in_T1$Pers_8_T1 <- replace(out_in_T1$Pers_8_T1, out_in_T1$Memory_8_c_T1 == 0, NA)
+out_in_T1$Pers_9_T1 <- replace(out_in_T1$Pers_9_T1, out_in_T1$Memory_9_c_T1 == 0, NA)
+out_in_T1$Pers_10_T1 <- replace(out_in_T1$Pers_10_T1, out_in_T1$Memory_10_c_T1 == 0, NA)
+
+
+out_in_T1$Pers_1_T1 <- as.numeric(out_in_T1$Pers_1_T1)
+out_in_T1$Pers_2_T1 <- as.numeric(out_in_T1$Pers_2_T1)
+out_in_T1$Pers_3_T1 <- as.numeric(out_in_T1$Pers_3_T1)
+out_in_T1$Pers_4_T1 <- as.numeric(out_in_T1$Pers_4_T1)
+out_in_T1$Pers_5_T1 <- as.numeric(out_in_T1$Pers_5_T1)
+out_in_T1$Pers_6_T1 <- as.numeric(out_in_T1$Pers_6_T1)
+out_in_T1$Pers_7_T1 <- as.numeric(out_in_T1$Pers_7_T1)
+out_in_T1$Pers_8_T1 <- as.numeric(out_in_T1$Pers_8_T1)
+out_in_T1$Pers_9_T1 <- as.numeric(out_in_T1$Pers_9_T1)
+out_in_T1$Pers_10_T1 <- as.numeric(out_in_T1$Pers_10_T1)
+
+#counting number of invalid perspective ratings and selecting participants who provided at least 8 ratings
+out_in_T1 <- out_in_T1 %>% 
+  rowwise() %>%
+  mutate(n_NAs = sum(is.na(across(everything()))))
+
+out_in_T1 %>% 
+  count(n_NAs)
+
+sum(out_in_T1$n_NAs)
+
+#participants to be excluded due to 9 or 10 invalid ratings
+out_in_T1_exclusion <- out_in_T1 %>% 
+  filter(n_NAs > 8)
+
+out_in_T1 <- out_in_T1 %>% 
+  filter(n_NAs <= 8)
+
+out_in_T1_exclusion_id <- out_in_T1_exclusion %>% 
+  select(participant_id)
+
+out_in_T1_exclusion_mails <- rawdata_T1 %>% 
+  filter(participant_id %in% c("9313901a5c8c3f8a", "30286f4af34e8683", "296d6f9597e97f1d", "60cf1e116eabdff9", "2744cec38a113185", "a31cdb7377f68122", 
+                                  "3e042998844b8a8b")) %>% 
+  select(Mail_T1)
+
+write.csv(out_in_T1_exclusion_mails,"C:\\Users\\PC\\OneDrive - Kadir Has University\\Devam Eden Çalışmalar\\Çalışma 2a\\out_in_T1_exclusion_mails_plus1.csv")
+
+
+#calculating the final score
+out_in_scale_T1 <- c("Pers_1_T1", "Pers_2_T1", "Pers_3_T1", "Pers_4_T1", "Pers_5_T1", "Pers_6_T1", "Pers_7_T1", "Pers_8_T1", 
+                     "Pers_9_T1", "Pers_10_T1")
+
+out_in_T1 <- out_in_T1 %>% 
+  rowwise() %>% 
+  mutate(outside_in_T1 = mean(c(Pers_1_T1, Pers_2_T1, Pers_3_T1, Pers_4_T1, Pers_5_T1, Pers_6_T1, Pers_7_T1, Pers_8_T1, Pers_9_T1,
+                                                      Pers_10_T1), na.rm = TRUE))
+
+out_innerjoin_T1 <- out_in_T1 %>% 
+  select(ResponseId_T1, outside_in_T1)
+
+rawdata_T1 <- rawdata_T1 %>% 
+  inner_join(out_innerjoin_T1, by = "ResponseId_T1")
+
+# Inserting USID column to data_T1 since I learned that it is the participants IDs of the Internet panel
+iae_data_T1 <- Final_data_10_08_23_Tübitak_Time_1
+
+iae_data_T1 <- iae_data_T1[-c(1),]
+
+USID <- iae_data_T1 %>% 
+  select(...9, ...180)
+
+USID <- USID %>% 
+  rename("ResponseId_T1" = ...9, "USID_T1" = ...180)
+
+data_T1 <- data_T1 %>% 
+  inner_join(USID, by = "ResponseId_T1")
+
+data_T1 <- data_T1 %>% 
+  select(-USID_T1.x)
+
+data_T1 <- data_T1 %>% 
+  rename("USID" = USID_T1.y)
+
+data_T1$USID <- as.numeric(data_T1$USID)
+
+write.csv(data_T1,"C:\\Users\\PC\\OneDrive - Kadir Has University\\Devam Eden Çalışmalar\\Çalışma 2a\\data_T1.csv")
+
+# Exclude open-ended responses which might contain sensitive information
+rawdata_T1 <- rawdata_T1 %>% 
+  select(-Memory_1_T1, -Memory_1_T1, -Memory_2_T1, -Memory_3_T1, -Memory_4_T1, -Memory_5_T1, -Memory_6_T1, -Memory_7_T1, -Memory_8_T1, -Memory_9_T1, 
+         -Memory_10_T1, -State_1_T1, -State_2_T1, -State_3_T1, -State_4_T1, -State_5_T1, -State_6_T1, -State_7_T1, -State_8_T1, -State_9_T1, -State_10_T1)
+
+
+## Time 2 data ####
+# Importing dataset
+rawdata_T2 <- read.csv("C:/Users/PC/OneDrive - Kadir Has University/Devam Eden Çalışmalar/Çalışma 2a/rawdata_T2.csv")
+
+# Deleting first two redundant rows
+rawdata_T2 <- rawdata_T2[-c(1, 2),] # bunu yaptıktan sonra yazdırıp yeniden import et. Bu haliyle bütün değişkenler character. Yeniden
+# import edince otomatik düzeltiyor.
+
+write.csv(rawdata_T2,"C:\\Users\\PC\\OneDrive - Kadir Has University\\Devam Eden Çalışmalar\\Çalışma 2a\\rawdata_T2.csv")
+rawdata_T2 <- read.csv("C:\\Users\\PC\\OneDrive - Kadir Has University\\Devam Eden Çalışmalar\\Çalışma 2a\\rawdata_T2.csv")
+
+# IAE datası
+iae_data <- iae_data[-c(1),]
+
+response_ids <- iae_data %>% 
+  select(...9)
+
+response_ids <- response_ids %>% 
+  rename("ResponseId" = ...9)
+
+rawdata_T2 <- rawdata_T2 %>% 
+  inner_join(response_ids, by = "ResponseId")
+
+write.csv(rawdata_T2,"C:\\Users\\PC\\OneDrive - Kadir Has University\\Devam Eden Çalışmalar\\Çalışma 2a\\rawdata_T2.csv")
+rawdata_T2 <- read.csv("C:\\Users\\PC\\OneDrive - Kadir Has University\\Devam Eden Çalışmalar\\Çalışma 2a\\rawdata_T2.csv")
+
+# Identifying participants who managed to take the survey second time
+b <- Çalışma_2a_Time_2_June_1_2024_09_30
+
+b2 <- b[-c(1, 2),]
+
+rawdata_T2 <- b2
+
+rawdata_T2 <- rawdata_T2 %>% 
+  distinct(USID, .keep_all = TRUE)
+
+rawdata_T2 <- rawdata_T2 %>% 
+  drop_na(USID)
+
+rawdata_T2 <- rawdata_T2 %>% filter(grepl('ezon', Attention_Check2_6_TEXT, ignore.case = TRUE) & (Attention_Check1 == 63))
+
+rawdata_T2 <- rawdata_T2 %>% 
+  rename(ResponseId_T2 = "ResponseId")
+
+rawdata_T2 <- rawdata_T2 %>% 
+  dplyr::select(ResponseId_T2)
+
+a5 <- data_T2 %>% 
+  inner_join(rawdata_T2, by = "ResponseId_T2")
+
+rawdata_T2 <- a5
+
+write.csv(rawdata_T2, "data_T2.csv")
+
+# Renaming some variables to drop redundant suffix
+rawdata_T2 <- rawdata_T2 %>% 
+  rename(Pers_1 = "Pers_1_1", Pers_2 = "Pers_2_1", Pers_3 = "Pers_3_1", Pers_4 = "Pers_4_1", Pers_5 = "Pers_5_1", Pers_6 = "Pers_6_1", Pers_7 = "Pers_7_1", 
+         Pers_8 = "Pers_8_1", Pers_9 = "Pers_9_1", Pers_10 = "Pers_10_1", Poliorient = "Poliorient_1", Ladder_SES = "Ladder_SES_1", Religiosity = "Religiosity_1")
+
+# Adding "_T2" to all variable names to indicate Time 2 data
+colnames(rawdata_T2) <- paste(colnames(rawdata_T2),"T2",sep="_")
+
+rawdata_T2 <- rawdata_T2 %>% 
+  rename(USID = "USID_T2")
+
+# Excluding redundant variables
+rawdata_T2 <- rawdata_T2 %>% 
+  select(-Status_T2, -IPAddress_T2, -RecipientLastName_T2, -RecipientFirstName_T2, -RecipientEmail_T2, -ExternalReference_T2, -LocationLatitude_T2, 
+         -LocationLongitude_T2, -DistributionChannel_T2, -UserLanguage_T2)
+
+# Excluding a Duplicate respondent due to the same mail
+duplicates_T2 <- rawdata_T2 %>% 
+  filter(USID %in% c(11219, 19677))
+
+rawdata_T2 <- rawdata_T2 %>% 
+  filter(USID != 19677)
+
+# Mail matching for Time 1 and Time 2 and Excluding severely unmatched (non-typo) participants (since it implies they are different people)
+a <- rawdata_T2 %>% 
+  dplyr::select(USID, Mail_T2)
+
+b <- data_T1 %>% 
+  dplyr::select(USID, Mail_T1)
+
+c <- a %>% 
+  inner_join(b, by = "USID")
+
+unmatched_mails <- c %>%
+  dplyr::select(Mail_T1, Mail_T2) %>% 
+  rowwise %>%
+  mutate(match = n_distinct(unlist(cur_data())) == 1) %>%
+  ungroup()
+
+unmatched_mails <- unmatched_mails %>% 
+  filter(match == "FALSE")
+
+unmatched_mails <- unmatched_mails %>% 
+  inner_join(a, by = "Mail_T2")
+
+unmatched_mails <- unmatched_mails %>% 
+  filter(USID %in% c(8411, 3457, 11219, 25399, 3859, 12437, 16005, 8380, 27190, 7450, 23878, 12048, 26679, 10250))
+
+rawdata_T2 <- rawdata_T2 %>% 
+  filter(!USID %in% c(8411, 11219, 3859, 12437, 16005, 27190, 7450, 23878, 12048))
+
+#Comparing Demographics to ensure that Time 1 and Time 2 participants are the same people
+
+# USID matching for Time 1 and Time 2
+rawdata_T2 <- rawdata_T2 %>% 
+  rename(guid_T1 = "guid")
+
+joined <- rawdata_T2 %>% 
+  inner_join(data_T1, by = "guid_T1")
+
+joined <- joined %>% 
+  mutate(age_diff = Age_T2 - Age_T1)
+
+joined <- joined %>% 
+  filter(age_diff != 0)
+
+joined <- joined %>% 
+  filter(age_diff != 1)
+
+joined <- joined %>% 
+  filter(age_diff != -1)
+
+joined <- joined %>% 
+  select(Mail_T2, Mail_T1, USID, Age_T2, Age_T1, age_diff, Gender_T1, Gender_3_TEXT_T1, Gender_T2, Gender_3_TEXT_T2, Education_T1, 
+         Education_T2, Religion_T1, Religion_4_TEXT_T1, Religion_T2, Religion_4_TEXT_T2)
+
+rawdata_T2 <- rawdata_T2 %>% 
+  filter(!USID %in% c(7765, 24427, 10679, 21940, 14122, 15093, 6996, 8504, 10104, 16975, 9930, 25101, 18703, 5839, 23071, 4985, 4436, 
+                      23655, 13311, 4895))
+
+
+# Incomplete responses (There is 1 P, whose incompletion is due to demographics. No need for exclusion)
+not_finished <- b2 %>% 
+  filter(Finished== 0)
+
+rawdata_T2 <- rawdata_T2 %>% 
+  filter(Finished==1)
+
+# Excluding participants who completed the survey in more than 4 hours
+rawdata_T2$`Duration (in seconds)` <- as.numeric(rawdata_T2$`Duration (in seconds)`)
+
+rawdata_T2 <- rawdata_T2 %>%
+  filter(`Duration (in seconds)` < 144000)
+
+describe(rawdata_T2$`Duration (in seconds)_T2` / 60)
+
+# Exclude participants who rejected to participate in the study after reading the consent form
+rawdata_T2 <- rawdata_T2 %>% 
+  filter(Consent == 1)
+
+# Excluding participants who fail to pass the attention checks
+rawdata_T2 <- rawdata_T2 %>%
+  filter(Attention_Check1 == 63)
+
+dfg <- rawdata_T2 %>%
+  filter(Attention_Check1_T2 == 63)
+
+rawdata_T2 <- rawdata_T2 %>%
+  filter((Attention_Check2 == 6 & Attention_Check2_6_TEXT == "sezon") | (Attention_Check2 == 6 & Attention_Check2_6_TEXT == "Sezon"))
+
+rawdata_T2 <- rawdata_T2 %>% 
+  drop_na(Attention_Check2_6_TEXT)
+
+
+#bot detection
+bot <- rawdata_T2 %>% 
+  filter(Q_RelevantIDFraudScore_T2 > 30)
+
+bot <- rawdata_T2 %>% 
+  filter((Q_RecaptchaScore_T2 < 0.5) %>% 
+           replace_na(TRUE))
+
+#duplicates
+duplicate <- rawdata_T2 %>% 
+  filter(Q_RelevantIDDuplicate_T2 == "true")
+
+rawdata_T1 <- rawdata_T1 %>% 
+  filter(Q_RelevantIDDuplicate_T1 != "true")
+
+duplicate_mail <- duplicate %>% 
+  inner_join(rawdata_T12, by = "Mail_T1")
+
+duplicate_mail <- duplicate_mail %>% 
+  select(Mail_T1)
+
+
+## Calculating the Final Scores ####
+
+### Inclusion Task ####
+rawdata_T2 <- rawdata_T2 %>% 
+  mutate(inclusion_T2 = (97 - SC0_T2) / 97)
+
+### Change Task ####
+change_scale_T2 <- c("Change_Sc_1_T2", "Change_Sc_2_T2", "Change_Sc_3_T2", "Change_Sc_4_T2", "Change_Sc_5_T2", "Change_Sc_6_T2", 
+                     "Change_Sc_7_T2", "Change_Sc_8_T2")
+
+rawdata_T2 <- rawdata_T2 %>% 
+  mutate(change_T2 = rowMeans(rawdata_T2[ ,change_scale_T2], na.rm = TRUE))
+
+rawdata_T2 <- rawdata_T2 %>% 
+  mutate(change_T2 = change_T2 / 10)
+
+### TST Coding ####
+# Preparing the TST statement for coding
+TST_T2 <- rawdata_T2 %>% 
+  select(starts_with("State"), ResponseId_T2)
+
+TST_T2 <- TST_T2 %>% 
+  pivot_longer(names_to = "Number", 
+               values_to = "Statement", 
+               cols = -ResponseId_T2)
+
+# Creating the Dataset for TST coding.
+write.csv(TST_T2,"C:\\Users\\PC\\OneDrive - Kadir Has University\\Devam Eden Çalışmalar\\Çalışma 2a\\TST_T2.csv") #Convert this .csv to excel for TST coding.
+
+#After coding, convert it to .csv and import it.
+TST_T2 <- read.csv("C:/Users/PC/OneDrive - Kadir Has University/Devam Eden Çalışmalar/Çalışma 2a/TST_T2.csv")
+
+#Merging two raters' ratings
+responseid <- rawdata_T2 %>% 
+  select(ResponseId_T2)
+
+TST_T2_joined <- TST_T2_baris %>% 
+  inner_join(TST_T2_fatmanur, by = c("...1", "Statement", "ResponseId_T2", "Number"))
+
+TST_T2_joined <- TST_T2_joined %>% 
+  inner_join(responseid, by = "ResponseId_T2")
+
+write.csv(TST_T2_joined,"C:\\Users\\PC\\OneDrive - Kadir Has University\\Devam Eden Çalışmalar\\Çalışma 2a\\TST_T2_joined.csv")
+
+
+#Counting invalid statements
+TST_T2_NAs <- TST_T2_joined %>% 
+  group_by(ResponseId_T2) %>% 
+  filter(`abstract/contextual` == -1, .preserve = TRUE) %>% 
+  count() %>% 
+  rename(TST_T2_NAs = n)
+
+TST_T2_joined <- TST_T2_joined %>% 
+  inner_join(TST_T2_NAs, by = "ResponseId_T2")
+
+#Counting Abstract statements
+TST_T2_abstract <- TST_T2_joined %>% 
+  group_by(ResponseId_T2) %>% 
+  filter(`abstract/contextual` == 1, .preserve = TRUE) %>% 
+  count() %>% 
+  rename(TST_T2_abstract = n)
+
+TST_2_joined <- TST_T2_joined %>% 
+  inner_join(TST_T2_abstract, by = "ResponseId_T2")
+
+TST_T2_scores <- TST_T2_NAs %>% 
+  inner_join(TST_T2_abstract, by = "ResponseId_T2")
+
+#Counting Contextual statements
+TST_T2_contextual <- TST_T2_joined %>% 
+  group_by(ResponseId_T2) %>% 
+  filter(`abstract/contextual` == 0, .preserve = TRUE) %>% 
+  count() %>% 
+  rename(TST_T2_contextual = n)
+
+TST_T2_joined <- TST_T2_joined %>% 
+  inner_join(TST_T2_contextual, by = "ResponseId_T2")
+
+TST_T2_scores <- TST_T2_scores %>% 
+  inner_join(TST_T2_contextual, by = "ResponseId_T2")
+
+#participants to be excluded due to 9 or 10 invalid statements
+TST_T2_exclusion <- TST_T2_scores %>% 
+  filter(TST_T2_NAs > 8)
+
+TST_T2_scores <- TST_T2_scores %>% 
+  filter(TST_T2_NAs <= 8)
+
+TST_T2_exclusion_mails <- rawdata_T2 %>% 
+  filter(ResponseId_T2 %in% c()) %>% 
+  select(Mail_T2)
+
+write.csv(TST_T2_exclusion_mails,"C:\\Users\\PC\\OneDrive - Kadir Has University\\Devam Eden Çalışmalar\\Çalışma 2a\\TST_T2_exclusion_mails.csv")
+
+
+#Calculating final TST scores.
+TST_T2_scores <- TST_T2_scores %>% 
+  mutate(TST_T2 = TST_T2_contextual / 10)
+
+rawdata_T2 <- rawdata_T2 %>% 
+  inner_join(TST_T2_scores, by = "ResponseId_T2")
+
+
+### Memory Coding (Outside-in Task) ####
+
+out_in_T2 <- rawdata_T2 %>% 
+  select(starts_with("Memory"), starts_with("Pers"), ResponseId_T2)
+
+write.csv(out_in_T2,"C:\\Users\\PC\\OneDrive - Kadir Has University\\Devam Eden Çalışmalar\\Çalışma 2a\\out_in_T2.csv") #excel'e çevir.
+
+
+out_in_T2 <- read_excel("out_in_T2.xlsx")
+
+out_in_T2 %>% 
+  count(Memory_3_c_T2)
+
+out_in_T2 %>% 
+  count(Pers_3_T2)
+
+
+out_in_T2$Pers_1_T2 <- replace(out_in_T2$Pers_1_T2, out_in_T2$Memory_1_c_T2 == 0, NA)
+out_in_T2$Pers_2_T2 <- replace(out_in_T2$Pers_2_T2, out_in_T2$Memory_2_c_T2 == 0, NA)
+out_in_T2$Pers_3_T2 <- replace(out_in_T2$Pers_3_T2, out_in_T2$Memory_3_c_T2 == 0, NA)
+out_in_T2$Pers_4_T2 <- replace(out_in_T2$Pers_4_T2, out_in_T2$Memory_4_c_T2 == 0, NA)
+out_in_T2$Pers_5_T2 <- replace(out_in_T2$Pers_5_T2, out_in_T2$Memory_5_c_T2 == 0, NA)
+out_in_T2$Pers_6_T2 <- replace(out_in_T2$Pers_6_T2, out_in_T2$Memory_6_c_T2 == 0, NA)
+out_in_T2$Pers_7_T2 <- replace(out_in_T2$Pers_7_T2, out_in_T2$Memory_7_c_T2 == 0, NA)
+out_in_T2$Pers_8_T2 <- replace(out_in_T2$Pers_8_T2, out_in_T2$Memory_8_c_T2 == 0, NA)
+out_in_T2$Pers_9_T2 <- replace(out_in_T2$Pers_9_T2, out_in_T2$Memory_9_c_T2 == 0, NA)
+out_in_T2$Pers_10_T2 <- replace(out_in_T2$Pers_10_T2, out_in_T2$Memory_10_c_T2 == 0, NA)
+
+
+out_in_T2$Pers_1_T2 <- as.numeric(out_in_T2$Pers_1_T2)
+out_in_T2$Pers_2_T2 <- as.numeric(out_in_T2$Pers_2_T2)
+out_in_T2$Pers_3_T2 <- as.numeric(out_in_T2$Pers_3_T2)
+out_in_T2$Pers_4_T2 <- as.numeric(out_in_T2$Pers_4_T2)
+out_in_T2$Pers_5_T2 <- as.numeric(out_in_T2$Pers_5_T2)
+out_in_T2$Pers_6_T2 <- as.numeric(out_in_T2$Pers_6_T2)
+out_in_T2$Pers_7_T2 <- as.numeric(out_in_T2$Pers_7_T2)
+out_in_T2$Pers_8_T2 <- as.numeric(out_in_T2$Pers_8_T2)
+out_in_T2$Pers_9_T2 <- as.numeric(out_in_T2$Pers_9_T2)
+out_in_T2$Pers_10_T2 <- as.numeric(out_in_T2$Pers_10_T)
+
+
+#counting number of invalid perspective ratings and selecting participants who provided at least 8 ratings
+out_in_T2 <- out_in_T2 %>% 
+  rowwise() %>%
+  mutate(n_NAs = sum(is.na(across(everything()))))
+
+out_in_T2 %>% 
+  count(n_NAs)
+
+sum(out_in_T2$n_NAs)
+
+#participants to be excluded due to 9 or 10 invalid ratings
+out_in_T2_exclusion <- out_in_T2 %>% 
+  filter(n_NAs > 8)
+
+out_in_T2 <- out_in_T2 %>% 
+  filter(n_NAs <= 8)
+
+out_in_T2_exclusion_id <- out_in_T2_exclusion %>% 
+  dplyr::select(ResponseId_T2)
+
+#calculating the final score
+out_in_scale_T2 <- c("Pers_1_T2", "Pers_2_T2", "Pers_3_T2", "Pers_4_T2", "Pers_5_T2", "Pers_6_T2", "Pers_7_T2", "Pers_8_T2", 
+                     "Pers_9_T2", "Pers_10_T2")
+
+out_in_T2 <- out_in_T2 %>% 
+  rowwise() %>% 
+  mutate(outside_in_T2 = mean(c(Pers_1_T2, Pers_2_T2, Pers_3_T2, Pers_4_T2, Pers_5_T2, Pers_6_T2, Pers_7_T2, Pers_8_T2, Pers_9_T2,
+                                Pers_10_T2), na.rm = TRUE))
+
+out_innerjoin_T2 <- out_in_T2 %>% 
+  dplyr::select(ResponseId_T2, outside_in_T2)
+
+rawdata_T2 <- rawdata_T2 %>% 
+  inner_join(out_innerjoin_T2, by = "ResponseId_T2")
+
+
+# Exclude open-ended responses which might contain sensitive information
+rawdata_T2 <- rawdata_T2 %>% 
+  select(-Memory_1_T2, -Memory_1_T2, -Memory_2_T2, -Memory_3_T2, -Memory_4_T2, -Memory_5_T2, -Memory_6_T2, -Memory_7_T2, -Memory_8_T2, -Memory_9_T2, 
+         -Memory_10_T2, -State_1_T2, -State_2_T2, -State_3_T2, -State_4_T2, -State_5_T2, -State_6_T2, -State_7_T2, -State_8_T2, -State_9_T2, -State_10_T2)
+
+
+
+## Converting numerically coded categorical variables to factor variables for Time 1 and Time 2 #####
+
+#Gender
+rawdata_T1$Gender_T1 <- factor(rawdata_T1$Gender_T1, levels = c(1:3), 
+                               labels = c("female",  "male", "other"))
+
+rawdata_T2$Gender_T2 <- factor(rawdata_T2$Gender_T2, levels = c(1:3), 
+                               labels = c("female",  "male", "other"))
+
+#Political View
+rawdata_T1 <- rawdata_T1 %>% 
+  rename(pol_ideology_T1 = Political_View_T1)
+
+rawdata_T1$pol_ideology_T1 <- factor(rawdata_T1$pol_ideology_T1, levels = c(1:10),
+                                     labels = c("social democrat", "kemalist", "socialist", "conservative democrat", "liberal", "islamist", 
+                                                "apolitical", "ultra-nationalist", "other", "nationalist"))
+
+rawdata_T2 <- rawdata_T2 %>% 
+  rename(pol_ideology_T2 = Political_View_T2)
+
+rawdata_T2$pol_ideology_T2 <- factor(rawdata_T2$pol_ideology_T2, levels = c(1:10), 
+                                     labels = c("social democrat", "kemalist", "socialist", "conservative democrat", "liberal", "islamist", 
+                                                "apolitical", "ultra-nationalist", "other", "nationalist"))
+
+#Education
+rawdata_T1$Education_T1 <- factor(rawdata_T1$Education_T1, levels = c(1:8),
+                                  labels = c("literacy", "primary school", "high school", "vocational high school", "undergraduate student", 
+                                             "bachelor's degree", "graduate student", "graduate degree"))
+
+rawdata_T2$Education_T2 <- factor(rawdata_T2$Education_T2, levels = c(1:8),
+                                  labels = c("literacy", "primary school", "high school", "vocational high school", "undergraduate student", 
+                                             "bachelor's degree", "graduate student", "graduate degree"))
+
+#Income
+rawdata_T1$Income_T1 <- factor(rawdata_T1$Income_T1, levels = c(1:5),
+                               labels = c("very good", "good", "not bad", "bad", "very bad"))
+
+rawdata_T2$Income_T2 <- factor(rawdata_T2$Income_T2, levels = c(1:5),
+                               labels = c("very good", "good", "not bad", "bad", "very bad"))
+
+#Religion
+rawdata_T1$Religion_T1 <- factor(rawdata_T1$Religion_T1, levels = c(1:4),
+                                 labels = c("atheist", "theist", "muslim", "other"))
+
+rawdata_T2$Religion_T2 <- factor(rawdata_T2$Religion_T2, levels = c(1:4),
+                                 labels = c("atheist", "theist", "muslim", "other"))
+
+#Longest inhabited place
+rawdata_T1$Place_T1 <- factor(rawdata_T1$Place_T1, levels = c(1:5),
+                              labels = c("metropolis", "city", "town", "small town", "village"))
+
+rawdata_T2$Place_T2 <- factor(rawdata_T2$Place_T2, levels = c(1:5),
+                              labels = c("metropolis", "city", "town", "small town", "village"))
+
+#Ethnicity
+rawdata_T1$Ethnicity_T1 <- factor(rawdata_T1$Ethnicity_T1, levels = c(1:8),
+                              labels = c("Turkish", "Kurdish", "Armenian", "Greek", "Arabic", "People of Caucasus Mountains", "Balkan", "Other"))
+
+rawdata_T2$Ethnicity_T2 <- factor(rawdata_T2$Ethnicity_T2, levels = c(1:8), 
+                                  labels = c("Turkish", "Kurdish", "Armenian", "Greek", "Arabic", "People of Caucasus Mountains", "Balkan", "Other"))
+
+
+# Create the final datasets
+write.csv(rawdata_T1,"C:\\Users\\PC\\OneDrive - Kadir Has University\\Devam Eden Çalışmalar\\Çalışma 2a\\data_T1.csv")
+write.csv(rawdata_T2,"C:\\Users\\PC\\OneDrive - Kadir Has University\\Devam Eden Çalışmalar\\Çalışma 2a\\data_T2.csv")
+
