@@ -1,0 +1,1254 @@
+# Main Analyses ####
+
+# Packages
+library(readxl)
+library(tidyverse)
+library(psych)
+library(readr)
+library(ggpubr)
+library(apaTables)
+library(rstatix)
+library(ggthemes)
+library(cowplot)
+library(mclust)
+library(tidyLPA)
+library(weights)
+library(Routliers)
+library(irr)
+library(moderndive)
+library(infer)
+library(datawizard)
+library(ltm)
+library(GGally)
+library(papaja)
+
+#Import the final dataset for Time 1 and Time 2
+data_T1 <- read.csv("data_T1.csv")
+
+data_T2 <- read.csv("data_T2.csv")
+
+#Exclude redundant column
+data_T1 <- data_T1 %>% 
+  select(-X.2, -X.1, -...1, -X.1_T1, -X_T1)
+
+data_T2 <- data_T2 %>% 
+  select(-X)
+
+## Excluding all outliers (run below to conduct LPA without outliers)
+
+#for Time 1
+data_T1 <- data_T1 %>%
+  filter(!USID %in% c(22430, 6561, 5251, 25635, 4425, 27105, 4303, 12633, 26865, 24427, 6569, 12883, 4289, 14022, 6356, 25053, 25351, 10250, 24130, 25509, 4985, 6685, 
+                      13654, 12247, 14928, 14771, 4952, 14324, 12287, 19123, 24939, 5061, 6247, 19237, 18625, 18529, 27614, 15558, 5017, 27316, 9348, 11022, 6118, 26705, 
+                      17044, 5025))
+
+#for Time 2
+#old dataset
+data_T2 <- data_T2 %>%
+  filter(!USID %in% c(4303, 26434, 12633, 5951, 23821, 26127, 6569, 18167, 9348, 10580, 17614, 5697, 6109, 13091, 21895, 4289, 25509, 19175, 6082, 26358, 21047, 26679, 
+                      13654, 24939, 10710, 6356, 12287))
+
+data_T2 <- data_T2 %>%
+  filter(!...1 %in% c(4, 6, 8, 16, 23, 60, 77, 108, 116, 126, 168, 170, 176, 177, 202, 215, 319, 328, 333, 340))
+
+
+
+#Merging Time 1 and Time 2 Datasets Without Outliers
+data_T1_T2 <- data_T1 %>% 
+  inner_join(data_T2, by = "USID")
+
+
+
+## Demographics Summary ####
+
+summarytools::freq(data_T1$Ethnicity_T1)
+summarytools::freq(data_T2$Ethnicity_T2)
+
+data_T2 %>% 
+  filter(Ethnicity_T2 == "Other") %>% 
+  dplyr::select(Ethnicity_8_TEXT_T2)
+
+summarytools::freq(data_T1$Gender_T1)
+summarytools::freq(data_T2$Gender_T2)
+
+data_T1 %>% 
+filter(Gender_T1 == "other") %>% 
+select(Gender_3_TEXT_T1)
+
+data_T2 %>% 
+  filter(Gender_T2 == "other") %>% 
+  dplyr::select(Gender_3_TEXT_T2)
+
+summarytools::freq(data_T1$pol_ideology_T1)
+summarytools::freq(data_T2$pol_ideology_T2)
+
+data_T1 %>% 
+  filter(pol_ideology_T1 == "other") %>% 
+  select(Political_View_9_TEXT_T1)
+
+a <- data_T2 %>% 
+  filter(pol_ideology_T2 == "other") %>% 
+  dplyr::select(Political_View_9_TEXT_T2)
+
+psych::describe(data_T1$Age_T1)
+psych::describe(data_T2$Age_T2)
+
+data_T1 %>% 
+select(Age_T1) %>% 
+arrange(desc(Age_T1))
+
+data_T2 %>% 
+  select(Age_T2) %>% 
+  arrange(desc(Age_T2))
+
+psych::describe(data_T1$Poliorient_T1)
+psych::describe(data_T2$Poliorient_T2)
+
+data_T1 %>% 
+  select(Poliorient_T1) %>% 
+  arrange(desc(Poliorient_T1))
+
+summarytools::freq(data_T1$Education_T1)
+summarytools::freq(data_T2$Education_T2)
+
+summarytools::freq(data_T1$Income_T1)
+summarytools::freq(data_T2$Income_T2)
+
+psych::describe(data_T1$Ladder_SES_T1)
+psych::describe(data_T2$Ladder_SES_T2)
+
+summarytools::freq(data_T1$Religion_T1)
+summarytools::freq(data_T2$Religion_T2)
+
+data_T1 %>% 
+  filter(Religion_T1 == "other") %>% 
+  select(Religion_4_TEXT_T1)
+
+data_T2 %>% 
+  filter(Religion_T2 == "other") %>% 
+  dplyr::select(Religion_4_TEXT_T2)
+
+psych::describe(data_T1$Religiosity_T1)
+psych::describe(data_T2$Religiosity_T2)
+
+summarytools::freq(data_T1$Place_T1)
+summarytools::freq(data_T2$Place_T2)
+
+psych::describe(data_T1$Duration..in.seconds._T1 / 60)
+psych::describe(data_T2$Duration..in.seconds._T2 / 60)
+
+
+## Reliability ####
+
+### Time 1 ####
+
+# Inter-item Reliability for Time 1 (cronbach's a)
+
+#Change Task
+change_cronbach_T1 <- data_T1 %>%
+  dplyr::select(Change_Sc_1_T1:Change_Sc_8_T1, -Attention_Check1_T1)
+
+cronbach.alpha(change_cronbach_T1)
+
+#Inclusion Task
+inclusion_cronbach_T1 <- data_T1 %>%
+  dplyr::select(Inclusion_Task_1_T1:Inclusion_Task_96_T1)
+
+inclusion_cronbach_T1 <- inclusion_cronbach_T1 %>% replace(is.na(.), 0)
+
+cronbach.alpha(inclusion_cronbach_T1)
+
+#Outside-in Task
+outside_in_cronbach_T1 <- data_T1 %>%
+  dplyr::select(starts_with("Pers_"))
+
+cronbach.alpha(outside_in_cronbach_T1)
+
+# Inter-rater Reliability for TST Time 1
+TST_T1 <- TST_T1_fatmanur %>% 
+  inner_join(TST_T1_baris, by = "...1")
+
+kappa2(TST_T1_joined[, c("rater1", "rater2")], weight = "unweighted")
+kappam.light(data_T1[, 3:6]) # for multiple raters
+
+TST_T1 <- TST_T1 %>% 
+  select(...1, ResponseId_T1.x, Number.x, Statement.x, fatmanur, baris, ...6)
+
+
+### Time 2 ####
+
+# Inter-item Reliability for Time 2 (cronbach's a)
+
+#Change Task
+change_cronbach_T2 <- data_T2 %>%
+  dplyr::select(Change_Sc_1_T2:Change_Sc_8_T2, -Attention_Check1_T2)
+
+cronbach.alpha(change_cronbach_T2)
+
+#Inclusion Task
+inclusion_cronbach_T2 <- data_T2 %>%
+  dplyr::select(Inclusion_Task_1_T2:Inclusion_Task_96_T2)
+
+inclusion_cronbach_T2 <- inclusion_cronbach_T2 %>% replace(is.na(.), 0)
+
+cronbach.alpha(inclusion_cronbach_T2)
+
+#Outside-in Task
+outside_in_cronbach_T2 <- data_T2 %>%
+  dplyr::select(starts_with("Pers_"))
+
+cronbach.alpha(outside_in_cronbach_T2)
+
+# Inter-rater Reliability for TST Time 2
+kappa2(TST_T2_joined[, c("rater1", "rater2")], weight = "unweighted")
+kappam.light(data_T2[, 3:6]) # for multiple raters
+
+
+# Hypothesis 1: Internal Consistency Across Measures ####
+
+## Assumption Checks For Pearson Correlation ####
+
+### Normality Checks through the Inspection of Residuals ####
+
+####Time 1####
+# Inclusion and TST Time 1
+model <- lm(inclusion_T1 ~ TST_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.1, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(TST_T1 ~ inclusion_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.1, color = "white") +
+  labs(x = "Residual")
+
+# Inclusion and Change Time 1
+model <- lm(inclusion_T1 ~ change_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.05, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(change_T1 ~ inclusion_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+# Inclusion and Outside-in Time 1
+model <- lm(inclusion_T1 ~ outside_in_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.05, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(outside_in_T1 ~ inclusion_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.05, color = "white") +
+  labs(x = "Residual")
+
+# Change and TST Time 1
+model <- lm(change_T1 ~ TST_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(TST_T1 ~ change_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.05, color = "white") +
+  labs(x = "Residual")
+
+# Change and Outside-in Time 1
+model <- lm(change_T1 ~ outside_in_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(outside_in_T1 ~ change_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+# TST and Outside-in Time 1
+model <- lm(TST_T1 ~ outside_in_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.05, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(outside_in_T1 ~ TST_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+#### Time 2 ####
+# Inclusion and TST Time 2
+model <- lm(inclusion_T2 ~ TST_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.05, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(TST_T2 ~ inclusion_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.05, color = "white") +
+  labs(x = "Residual")
+
+# Inclusion and Change Time 2
+model <- lm(inclusion_T2 ~ change_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.05, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(change_T2 ~ inclusion_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+# Inclusion and Outside-in Time 2
+model <- lm(inclusion_T2 ~ outside_in_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.05, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(outside_in_T2 ~ inclusion_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+# Change and TST Time 2
+model <- lm(change_T2 ~ TST_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(TST_T2 ~ change_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.05, color = "white") +
+  labs(x = "Residual")
+
+# Change and Outside-in Time 2
+model <- lm(change_T2 ~ outside_in_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(outside_in_T2 ~ change_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+# TST and Outside-in Time 2
+model <- lm(TST_T2 ~ outside_in_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.05, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(outside_in_T2 ~ TST_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+### Exploratory Checks for Normality ####
+
+# Normality for Inclusion Task at Time 1 #
+psych::describe(data_T1$inclusion_T1)
+
+data_T1 %>% 
+  shapiro_test(inclusion_T1)
+
+ggplot(data_T1, aes(x = inclusion_T1)) +
+  geom_histogram(binwidth = 0.025, color = "white")
+
+ggqqplot(data_T1, "inclusion_T1", ggtheme = theme_bw())
+
+# Normality for Inclusion Task at Time 2 #
+psych::describe(data_T2$inclusion_T2)
+
+data_T2 %>% 
+  shapiro_test(inclusion_T2)
+
+ggplot(data_T2, aes(x = inclusion_T2)) +
+  geom_histogram(binwidth = 0.05, color = "white")
+
+ggqqplot(data_T2, "inclusion_T2", ggtheme = theme_bw())
+
+
+# Normality for Change Task at Time 1 #
+psych::describe(data_T1$change_T1)
+
+data_T1 %>% 
+  shapiro_test(change_T1)
+
+ggplot(data_T1, aes(x = change_T1)) +
+  geom_histogram(binwidth = 0.5, color = "white")
+
+ggqqplot(data_T1, "change_T1", ggtheme = theme_bw())
+
+# Normality for Change Task at Time 2 #
+psych::describe(data_T2$change_T2)
+
+data_T2 %>% 
+  shapiro_test(change_T2)
+
+ggplot(data_T2, aes(x = change_T2)) +
+  geom_histogram(binwidth = 0.5, color = "white")
+
+ggqqplot(data_T2, "change_T2", ggtheme = theme_bw())
+
+
+# Normality for Outside-in Task at Time 1 #
+psych::describe(data_T1$outside_in_T1)
+
+data_T1 %>% 
+  shapiro_test(outside_in_T1)
+
+ggplot(data_T1, aes(x = outside_in_T1)) +
+  geom_histogram(binwidth = 0.1, color = "white")
+
+ggqqplot(data_T1, "outside_in_T1", ggtheme = theme_bw())
+
+# Normality for Outside-in Task at Time 2 #
+psych::describe(data_T2$outside_in_T2)
+
+data_T2 %>% 
+  shapiro_test(outside_in_T2)
+
+ggplot(data_T2, aes(x = outside_in_T2)) +
+  geom_histogram(binwidth = 0.1, color = "white")
+
+ggqqplot(data_T2, "outside_in_T2", ggtheme = theme_bw())
+
+
+# Normality for Twenty Statement Task (TST) at Time 1 #
+psych::describe(data_T1$TST_T1)
+
+data_T1 %>% 
+  shapiro_test(TST_T1)
+
+ggplot(data_T1, aes(x = TST_T1)) +
+  geom_histogram(binwidth = 0.05, color = "white")
+
+ggqqplot(data_T1, "TST_T1", ggtheme = theme_bw())
+
+# Normality for Twenty Statement Task (TST) at Time 2 #
+psych::describe(data_T2$TST_T2)
+
+data_T2 %>% 
+  shapiro_test(TST_T2)
+
+ggplot(data_T2, aes(x = TST_T2)) +
+  geom_histogram(binwidth = 0.1, color = "white")
+
+ggqqplot(data_T2, "TST_T2", ggtheme = theme_bw())
+
+
+### Linearity Between Variables ####
+
+## Linearity of Relationships at Time 1 ##
+
+# Inclusion - Change T1
+ggplot(data_T1, aes(x = inclusion_T1, y = change_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T1, aes(x = change_T1, y = inclusion_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+#Inclusion - Outside-in T1
+ggplot(data_T1, aes(x = inclusion_T1, y = outside_in_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T1, aes(x = outside_in_T1, y = inclusion_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+#Inclusion - TST T1
+ggplot(data_T1, aes(x = TST_T1, y = inclusion_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T1, aes(x = inclusion_T1, y = TST_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+# Change - Outside-in T1
+ggplot(data_T1, aes(x = change_T1, y = outside_in_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T1, aes(x = outside_in_T1, y = change_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+# TST - Change T1
+ggplot(data_T1, aes(x = TST_T1, y = change_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T1, aes(x = change_T1, y = TST_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+#Outside-in - TST T1
+ggplot(data_T1, aes(x = outside_in_T1, y = TST_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T1, aes(x = TST_T1, y = outside_in_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+## Linearity of Relationships at Time 2 ##
+ggplot(data_T2, aes(x = inclusion_T2, y = change_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T2, aes(x = inclusion_T2, y = outside_in_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T2, aes(x = inclusion_T2, y = TST_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T2, aes(x = change_T2, y = outside_in_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T2, aes(x = change_T2, y = TST_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T2, aes(x = outside_in_T2, y = TST_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+## Correlation Analyses ####
+
+#Correlation Table for Time 1
+cor_table_T1 <- dplyr::select(data_T1, inclusion_T1, change_T1, outside_in_T1, TST_T1)
+apa.cor.table(cor_table_T1, filename = "cor_table_T1")
+
+cor.test(~ inclusion_T1 + TST_T1, method = "spearman", data = data_T1)
+cor.test(~ inclusion_T1 + change_T1, method = "spearman", data = data_T1)
+cor.test(~ inclusion_T1 + outside_in_T1, method = "spearman", data = data_T1)
+cor.test(~ change_T1 + TST_T1, method = "spearman", data = data_T1)
+cor.test(~ outside_in_T1 + change_T1, method = "spearman", data = data_T1)
+cor.test(~ outside_in_T1 + TST_T1, method = "spearman", data = data_T1)
+
+
+ggp <- data_T1 %>% 
+  dplyr::select(inclusion_T1, change_T1, outside_in_T1, TST_T1)
+
+ggpairs(ggp)
+
+#ara rapor için
+ggp <- ggp %>% 
+  rename(Bilgi_Dahil_Etme = inclusion_T1)
+ggp <- ggp %>% 
+  rename(Karşıt_Olayların_Olasılığı = change_T1)
+ggp <- ggp %>% 
+  rename(Dışarıdan_içeriden_Testi = outside_in_T1)
+ggp <- ggp %>% 
+  rename(Yirmi_İfade_Testi = TST_T1)
+
+#Correlation Table for Time 2
+cor_table_T2 <- dplyr::select(data_T2, inclusion_T2, change_T2, outside_in_T2, TST_T2)
+apa.cor.table(cor_table_T2, filename = "cor_table_T2")
+
+cor.test(~ inclusion_T2 + TST_T2, method = "spearman", data = data_T2)
+cor.test(~ inclusion_T2 + change_T2, method = "spearman", data = data_T2)
+cor.test(~ inclusion_T2 + outside_in_T2, method = "spearman", data = data_T2)
+cor.test(~ change_T2 + TST_T2, method = "spearman", data = data_T2)
+cor.test(~ outside_in_T2 + change_T2, method = "spearman", data = data_T2)
+cor.test(~ outside_in_T2 + TST_T2, method = "spearman", data = data_T2)
+
+
+ggp <- data_T2 %>% 
+  dplyr::select(inclusion_T2, change_T2, outside_in_T2, TST_T2)
+
+ggpairs(ggp)
+
+
+# Merging Time 1 and Time 2 Datasets for Hypotheses 2 and 3 ####
+
+# Select participants who participated both at Time 1 and Time 2 by merging Time 1 and Time 2 Datasets. (Needed for Hypotheses 2 and 3)
+
+#Merging Time 1 and Time 2 datasets based on participant ID
+data_T1_T2 <- data_T1 %>% 
+  right_join(data_T2, by = "USID")
+
+
+# Hypothesis 2: Cross-temporal Consistency (Test-retest stability) ####
+
+## Assumption Checks for Pearson Correlation ####
+
+### Normality Checks through the Inspection of Residuals of Same Measures Across Time 1 and Time 2 ####
+
+#Inclusion Time 1 and Time 2
+model <- lm(inclusion_T1 ~ inclusion_T2, data = data_T1_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(inclusion_T2 ~ inclusion_T1, data = data_T1_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+#Change Time 1 and Time 2
+model <- lm(change_T1 ~ change_T2, data = data_T1_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(change_T2 ~ change_T1, data = data_T1_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+#Outside-in Time 1 and Time 2
+model <- lm(outside_in_T1 ~ outside_in_T2, data = data_T1_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(outside_in_T2 ~ outside_in_T1, data = data_T1_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+#TST Time 1 and Time 2
+model <- lm(TST_T1 ~ TST_T2, data = data_T1_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(TST_T2 ~ TST_T1, data = data_T1_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+### Linearity Between Variables ####
+ggplot(data_T1_T2, aes(x = inclusion_T1, y = inclusion_T2)) +
+  geom_point()
+
+ggplot(data_T1_T2, aes(x = outside_in_T1, y = outside_in_T2)) +
+  geom_point()
+
+ggplot(data_T1_T2, aes(x = TST_T1, y = TST_T2)) +
+  geom_point()
+
+ggplot(data_T1_T2, aes(x = change_T1, y = change_T2)) +
+  geom_point()
+
+## Correlation Analyses ####
+
+cor.test(formula = ~ inclusion_T1 + inclusion_T2, data = data_T1_T2)
+cor.test(formula = ~ change_T1 + change_T2, data = data_T1_T2)
+cor.test(formula = ~ outside_in_T1 + outside_in_T2, data = data_T1_T2)
+cor.test(formula = ~ TST_T1 + TST_T2, data = data_T1_T2)
+
+
+# Hypothesis 3: Behavioral Profiles ####
+
+## Preparing the datasets for Latent Profile Analyses ####
+data_T1_T2$USID <- as.factor(data_T1_T2$USID)
+
+lpa <- data_T1_T2 %>% 
+  dplyr::select(USID, inclusion_T1, inclusion_T2, change_T1, change_T2, outside_in_T1, outside_in_T2, TST_T1, TST_T2)
+
+lpa <- na.omit(lpa)
+
+lpa_T1 <- lpa %>% 
+  dplyr::select(USID, inclusion_T1, change_T1, outside_in_T1, TST_T1)
+
+lpa_T1 <- lpa_T1 %>% 
+  rename(Inclusion = inclusion_T1)
+lpa_T1 <- lpa_T1 %>% 
+  rename(Change = change_T1)
+lpa_T1 <- lpa_T1 %>% 
+  rename("Outside-in" = outside_in_T1)
+lpa_T1 <- lpa_T1 %>% 
+  rename(TST = TST_T1)
+
+lpa_T1_std <- standardize(lpa_T1) #if the participant ID was a number, it would be necessary to add "[, -1]" to not standardize ID numbers.
+
+lpa_T2 <- lpa %>% 
+  dplyr::select(USID, inclusion_T2, change_T2, outside_in_T2, TST_T2)
+
+lpa_T2 <- lpa_T2 %>% 
+  rename(Inclusion = inclusion_T2)
+lpa_T2 <- lpa_T2 %>% 
+  rename(Change = change_T2)
+lpa_T2 <- lpa_T2 %>% 
+  rename("Outside-in" = outside_in_T2)
+lpa_T2 <- lpa_T2 %>% 
+  rename(TST = TST_T2)
+
+lpa_T2_std <- standardize(lpa_T2) #if the participant ID was a number, it would be necessary to add "[, -1]" to not standardize ID numbers.
+
+
+## Time 1 LPA ####
+
+### Model Fit and Class Enumeration with Mclust ####
+
+#To compare four primary models
+mnames <- c("EEI", "EEE", "VVI", "VVV")
+
+mod_g <- Mclust(lpa_T1_std[, -1], modelNames = mnames)
+summary(mod_g)
+
+mod_g$G
+mod_g$modelName
+mod_g$BIC
+
+#Mclust
+m1_T1 <- Mclust(lpa_T1_std[, -1], modelNames = "EEI", G = 2) #with standardized scores
+summary(m1_T1)
+
+#BIC
+BIC <- mclustBIC(lpa_T1_std[, -1])
+summary(BIC)
+mclustBIC(lpa_T1_std[, -1])
+plot(m1_T1, what = "BIC")
+plot(m1_T1, what = "BIC", model = "EEI")
+
+#LogLik
+mclustLoglik(BIC)
+
+#ICL
+ICL <- mclustICL(lpa_T1_std[, -1])
+summary(ICL)
+mclustICL(lpa_T1_std[, -1])
+plot(ICL)
+plot(ICL, model = "EEI")
+
+#BLRT
+lrt_T1 <- mclustBootstrapLRT(lpa_T1_std[, -1], modelName = "EEI", maxG = 6)  
+lrt_T1
+plot(lrt_T1)
+
+#Table of fit indices
+ll <- mclustLoglik(mclustBIC(lpa_T1_std[, -1]))[1:7, 2]
+npara <- NULL
+for (i in 1:5) {
+  npara[i] <- nMclustParams(modelName = "EEI", d = 1, G = i)
+}
+fit1 <- data.frame(
+  nClasses = 1:7,
+  Log.Likelihood = ll,
+  AIC = 2*ll - 2 * npara,
+  BIC = m1_T1$BIC[1:7],
+  CAIC = 2*ll - npara*(log(length(lpa_T1_std[, -1])) + 1),
+  SABIC = 2*ll - npara * log((length(lpa_T1_std[, -1]) + 2)/24),
+  BLRT = c(NA, lrt_T1$obs),
+  p = c(NA, lrt_T1$p.value)
+)
+round(fit1, 2)
+
+### Classification Diagnostics ####
+
+#Average posterior class probabilities
+round(aggregate(
+  x = 1 - m1_T1$uncertainty,
+  by = list(m1_T1$classification),
+  FUN = "mean"), 2)
+
+#Plot mixture densities through dimensionality reduction
+clust_T1 <- MclustDR(m1_T1)
+plot(clust_T1, what = "boundaries", ngrid = 200)
+plot(clust_T1, what = "density", dimens = 1)
+
+### Inspecting the Model Parameters ####
+
+#Get model parameters and make a profile plot
+m1.4_T1 <- Mclust(lpa_T1_std[, -1], G = 2, modelNames = "EEI")
+summary(m1.4_T1, parameters = TRUE)
+
+#Add class membership to data as a new variable
+c_T1 <- data.frame(m1.4_T1$classification)
+lpa_T1 <- cbind(lpa_T1, c_T1)
+lpa_T1_std <- cbind(lpa_T1_std, c_T1)
+
+# Ploting mean profiles 
+m1.4_T1$parameters$mean %>%
+  data.frame() %>%
+  rename(
+    Class1 = X1,
+    Class2 = X2) %>%
+  mutate(Var = row.names(m1.4_T1$parameters$mean)) %>%
+  pivot_longer(!Var,
+               names_to = "Class",
+               values_to = "Mean") %>%
+  ggplot(aes(
+    x = Var,
+    y = Mean,
+    col = Class,
+    group = Class
+  )) +
+  geom_hline(yintercept = 0, col = "grey60") +
+  geom_line() +
+  geom_point(aes(shape = Class), size = 2) +
+  ylim(-2.5, 2.5) +
+  theme_few() +
+  scale_color_few(palette = "Dark") +
+  labs(x = "", col = "", shape = "")
+
+
+###Running LPA with tidyLPA For Comparison ####
+
+lpa_T1_std$outside_in_T1 <- as.numeric(lpa_T1_std$outside_in_T1) # run these four lines of codes if variables are not numerically coded
+lpa_T1_std$change_T1 <- as.numeric(lpa_T1_std$change_T1)
+lpa_T1_std$inclusion_T1 <- as.numeric(lpa_T1_std$inclusion_T1)
+lpa_T1_std$TST_T1 <- as.numeric(lpa_T1_std$TST_T1)
+
+m1t_T1 <- lpa_T1_std[, -1] %>%
+  estimate_profiles(n_profiles = 1:6, 
+                    variances = "equal",
+                    covariances = "zero")
+
+fitm1t_T1 <- get_fit(m1t_T1)
+fitm1t_T1
+
+fitm1t_T1_less <- fitm1t_T1 %>% 
+  dplyr::select(Classes, LogLik, AIC, BIC, CAIC, SABIC, ICL, Entropy, BLRT_val, BLRT_p)
+
+comp_T1 <- compare_solutions(m1t_T1)
+comp_T1
+comp_T1$best
+
+# Plot selected indices
+fitm1t_T1 %>%
+  dplyr::select(Classes, AIC, CAIC, BIC, SABIC) %>%
+  pivot_longer(cols = !Classes,
+               names_to = "Index",
+               values_to = "value") %>%
+  ggplot(aes(x = Classes, y = value, col = Index, Group = Index)) +
+  geom_line() +
+  geom_point(aes(shape = Index), size = 2) +
+  theme_few() +
+  scale_color_few(palette = "Dark") +
+  labs(x = "Class Number", col = "", shape = "")
+
+###Calculating the interclass distance by Mahalanobis Distance ###
+cohen.d(lpa_T1_std[, -1], m1_T1$classification,alpha=.05,std=TRUE,sort=NULL,dictionary=NULL,MD=TRUE,data=NULL)
+
+
+## Time 2 LPA ####
+
+### Model Fit and Class Enumeration with Mclust ####
+
+#To compare four primary models
+mnames <- c("EEI", "EEE", "VVI", "VVV")
+
+mod_g <- Mclust(lpa_T2_std[, -1], modelNames = mnames)
+summary(mod_g)
+
+mod_g$G
+mod_g$modelName
+mod_g$BIC
+
+#Mclust
+m1_T2 <- Mclust(lpa_T2_std[, -1], modelNames = "EEI", G = 2)
+summary(m1_T2)
+
+#BIC
+BIC <- mclustBIC(lpa_T2_std[, -1])
+summary(BIC)
+mclustBIC(lpa_T2_std[, -1])
+plot(m1_T2, what = "BIC")
+plot(m1_T2, what = "BIC", model = "EEI")
+
+#LogLik
+mclustLoglik(BIC)
+
+#ICL
+ICL <- mclustICL(lpa_T2_std[, -1])
+summary(ICL)
+mclustICL(lpa_T2_std[, -1])
+plot(ICL)
+plot(ICL, model = "EEI")
+
+#BLRT
+lrt_T2 <- mclustBootstrapLRT(lpa_T2_std[, -1], modelName = "EEI", maxG = 6)  
+lrt_T2
+plot(lrt_T2)
+
+#Table of fit indices
+ll <- mclustLoglik(mclustBIC(lpa_T2_std[, -1]))[1:6, 2]
+npara <- NULL
+for (i in 1:6) {
+  npara[i] <- nMclustParams(modelName = "EEI", d = 1, G = i)
+}
+fit1 <- data.frame(
+  nClasses = 1:6,
+  Log.Likelihood = ll,
+  AIC = 2*ll - 2 * npara,
+  BIC = na_T1$BIC[1:6],
+  CAIC = 2*ll - npara*(log(length(lpa_T2)) + 1),
+  SABIC = 2*ll - npara * log((length(lpa_T2) + 2)/24),
+  BLRT = c(NA, lrt_T1$obs),
+  p = c(NA, lrt_T1$p.value)
+)
+round(fit1, 2)
+
+### Classification Diagnostics ####
+
+#Average posterior class probabilities
+round(aggregate(
+  x = 1 - m1_T2$uncertainty,
+  by = list(m1_T2$classification),
+  FUN = "mean"), 2)
+
+#Entropy
+round(fitm1t_T2$Entropy[4], 2) # Comes from tidyLPA, so run after tidyLPA session.
+
+#Plot mixture densities through dimensionality reduction
+clust_T2 <- MclustDR(m1_T2)
+plot(clust_T2, what = "boundaries", ngrid = 200)
+plot(clust_T2, what = "density", dimens = 1)
+
+### Inspecting the Model Parameters ####
+
+#Get model parameters and make a profile plot
+m1.4_T2 <- Mclust(lpa_T2_std[, -1], G = 2, modelNames = "EEI")
+summary(m1.4_T2, parameters = TRUE)
+
+#Add class membership to data as a new variable
+c_T2 <- data.frame(m1.4_T2$classification)
+lpa_T2 <- cbind(lpa_T2, c_T2)
+lpa_T2_std <- cbind(lpa_T2_std, c_T2)
+
+# Ploting mean profiles 
+m1.4_T2$parameters$mean %>%
+  data.frame() %>%
+  rename(
+    Class1 = X1,
+    Class2 = X2) %>%
+  mutate(Var = row.names(m1.4_T2$parameters$mean)) %>%
+  pivot_longer(!Var,
+               names_to = "Class",
+               values_to = "Mean") %>%
+  ggplot(aes(
+    x = Var,
+    y = Mean,
+    col = Class,
+    group = Class
+  )) +
+  geom_hline(yintercept = 0, col = "grey60") +
+  geom_line() +
+  geom_point(aes(shape = Class), size = 2) +
+  ylim(-2.5, 2.5) +
+  theme_few() +
+  scale_color_few(palette = "Dark") +
+  labs(x = "", col = "", shape = "")
+
+
+###Running LPA with tidyLPA For Comparison ####
+
+lpa_T2_std$outside_in_T2 <- as.numeric(lpa_T2_std$outside_in_T2) # run these four lines of codes if variables are not numerically coded
+lpa_T2_std$change_T2 <- as.numeric(lpa_T2_std$change_T2)
+lpa_T2_std$inclusion_T2 <- as.numeric(lpa_T2_std$inclusion_T2)
+lpa_T2_std$TST_T2 <- as.numeric(lpa_T2_std$TST_T2)
+
+m1t_T2 <- lpa_T2_std[, -1] %>%
+  estimate_profiles(n_profiles = 1:6, 
+                    variances = "equal",
+                    covariances = "zero")
+
+fitm1t_T2 <- get_fit(m1t_T2)
+fitm1t_T2
+
+fitm1t_T2_less <- fitm1t_T2 %>% 
+  dplyr::select(Classes, LogLik, AIC, BIC, CAIC, SABIC, ICL, Entropy, BLRT_val, BLRT_p)
+
+
+comp_T2 <- compare_solutions(m1t_T2)
+comp_T2
+comp_T2$best
+
+
+# Plot selected indices
+fitm1t_T2 %>%
+  dplyr::select(Classes, AIC, CAIC, BIC, SABIC) %>%
+  pivot_longer(cols = !Classes,
+               names_to = "Index",
+               values_to = "value") %>%
+  ggplot(aes(x = Classes, y = value, col = Index, Group = Index)) +
+  geom_line() +
+  geom_point(aes(shape = Index), size = 2) +
+  theme_few() +
+  scale_color_few(palette = "Dark") +
+  labs(x = "Class Number", col = "", shape = "")
+
+###Calculating the interclass distance by Mahalanobis Distance ###
+cohen.d(lpa_T2_std[, -1], m1_T2$classification,alpha=.05,std=TRUE,sort=NULL,dictionary=NULL,MD=TRUE,data=NULL)
+
+## Merging LPA Time 1 and Time 2 datasets to Compare Class Membership Across Time ####
+
+#Labeing Classes as A and B
+lpa_T1_std$m1.4_T1.classification <- factor(lpa_T1_std$m1.4_T1.classification, levels = c(1:2), 
+                                                   labels = c("A",  "B"))
+
+lpa_T1_std %>% 
+  group_by(m1.4_T1.classification) %>% 
+  count()
+
+lpa_T2_std$m1.4_T2.classification <- factor(lpa_T2_std$m1.4_T2.classification, levels = c(1:2), 
+                                                   labels = c("A",  "B"))
+
+lpa_T2_std %>% 
+  group_by(m1.4_T2.classification) %>% 
+  count()
+
+
+lpa_T1_T2_std <- lpa_T1_std %>% 
+  inner_join(lpa_T2_std, by = "USID")
+
+classification <- lpa_T1_T2_std %>% 
+  dplyr::select(USID, m1.4_T1.classification, m1.4_T2.classification)
+
+#selecting participants who changed classes across Time 1 and Time 2
+classification2 <- classification %>% 
+  filter((m1.4_T1.classification == "1" & m1.4_T2.classification == "2") | (m1.4_T1.classification == "1" & m1.4_T2.classification == "2"))
+
+
+
+# Excluding Univariate and Multivariate Outliers for Reanalyses ####
+
+## Detecting Univariate Outliers with MAD method at Time 1 and Time 2 ####
+
+# Outliers for Inclusion Task at Time 1 #
+
+#Detecting outliers with boxplot and Interquartile Range (IQR)
+ggplot(data_T1, aes(y = inclusion_T1)) +
+  geom_boxplot()
+
+options(max.print = 1000000) # to avoid row ommissions
+
+data_T1 %>% 
+  identify_outliers(inclusion_T1)
+
+#Detecting outliers with Median Absolute Deviation (MAD) and removing them
+outl_inclusion_T1 <- outliers_mad(data_T1$inclusion_T1)
+
+outl_inclusion_T1$outliers_pos
+
+data_T1 <- data_T1 %>%
+  filter(!participant %in% c())
+
+
+# Outliers for Inclusion Task at Time 2 #
+
+#Detecting outliers with boxplot and Interquartile Range (IQR)
+ggplot(data_T2, aes(y = inclusion_T2)) +
+  geom_boxplot()
+
+data_T2 %>% 
+  identify_outliers(inclusion_T2)
+
+#Detecting outliers with Median Absolute Deviation (MAD) and removing them
+outl_inclusion_T2 <- outliers_mad(data_T2$inclusion_T2)
+
+outl_inclusion_T2$outliers_pos
+
+data_T2 <- data_T2 %>%
+  filter(!participant %in% c())
+
+
+# Outliers for Change Task at Time 1 #
+
+#Detecting outliers with boxplot and Interquartile Range (IQR)
+ggplot(data_T1, aes(y = change_T1)) +
+  geom_boxplot()
+
+data_T1 %>% 
+  identify_outliers(change_T1)
+
+#Detecting outliers with MAD and removing them
+outl_change_T1 <- outliers_mad(data_T1$change_T1)
+
+outl_change_T1$outliers_pos
+
+data_T1 <- data_T1 %>%
+  filter(!X %in% c(8, 32, 53, 151, 159, 221, 226, 298, 352, 358, 394, 74, 178, 371, 390, 418, 485))
+
+
+# Outliers for Change Task at Time 2 #
+
+#Detecting outliers with boxplot and Interquartile Range (IQR)
+ggplot(data_T2, aes(y = change_T2)) +
+  geom_boxplot()
+
+data_T2 %>% 
+  identify_outliers(change_T2)
+
+#Detecting outliers with MAD and removing them
+outl_change_T2 <- outliers_mad(data_T2$change_T2)
+
+outl_change_T2$outliers_pos
+
+data_T2 <- data_T2 %>%
+  filter(!...1 %in% c())
+
+
+# Outliers for Outside-in Task at Time 1 #
+
+#Detecting outliers with boxplot and Interquartile Range (IQR)
+ggplot(data_T1, aes(y = outside_in_T1)) +
+  geom_boxplot()
+
+data_T1 %>% 
+  identify_outliers(outside_in_T1)
+
+#Detecting outliers with MAD and removing them
+outl_outside_in_T1 <- outliers_mad(data_T1$outside_in_T1)
+
+outl_outside_in_T1$outliers_pos
+
+data_T1 <- data_T1 %>%
+  filter(!X %in% c(2, 3, 15, 45, 55, 86, 96, 111, 138, 145, 155, 162, 198, 233, 234, 279, 284, 312, 329, 336, 382, 386, 407, 415, 416, 463, 466, 486, 512))
+
+
+# Outliers for Outside-in Task Time 2 #
+
+#Detecting outliers with boxplot and Interquartile Range (IQR)
+ggplot(data_T2, aes(y = outside_in_T2)) +
+  geom_boxplot()
+
+data_T2 %>% 
+  identify_outliers(outside_in_T2)
+
+#Detecting outliers with MAD and removing them
+outl_outside_in_T2 <- outliers_mad(data_T2$outside_in_T2)
+
+outl_outside_in_T2$outliers_pos
+
+data_T2 <- data_T2 %>%
+  filter(!...1 %in% c(4, 6, 22, 59, 108, 116, 126, 168, 175, 176, 201, 214, 299, 324, 335, 340, 342, 357, 369, 374))
+
+
+# Outliers for Twenty Statement Task (TST) at Time 1 #
+
+#Detecting outliers with boxplot and Interquartile Range (IQR)
+ggplot(data_T1, aes(y = TST_T1)) +
+  geom_boxplot()
+
+data_T1 %>% 
+  identify_outliers(TST_T1)
+
+#Detecting outliers with MAD and removing them
+outl_TST_T1 <- outliers_mad(data_T1$TST_T1)
+
+outl_TST_T1$outliers_pos
+
+data_T1 <- data_T1 %>%
+  filter(!participant %in% c())
+
+
+# Outliers for Twenty Statement Task (TST) at Time 2 #
+
+#Detecting outliers with boxplot and Interquartile Range (IQR)
+ggplot(data_T2, aes(y = TST_T2)) +
+  geom_boxplot()
+
+data_T2 %>% 
+  identify_outliers(TST_T2)
+
+#Detecting outliers with MAD and removing them
+outl_TST_T2 <- outliers_mad(data_T2$TST_T2)
+
+outl_TST_T2$outliers_pos
+
+data_T2 <- data_T2 %>%
+  filter(!participant %in% c())
+
+
+## Detecting Multivariate Outliers with MCD method ####
+
+#for Time 1
+MCD_T1 <- outliers_mcd(x = data.frame(data_T1$inclusion_T1, data_T1$change_T1, data_T1$outside_in_T1, data_T1$TST_T1), alpha = .001)
+
+MCD_T1$outliers_pos
+
+#for Time 2
+MCD_T2 <- outliers_mcd(x = data.frame(data_T2$inclusion_T2, data_T2$change_T2, data_T2$outside_in_T2, data_T2$TST_T2), alpha = .001)
+
+MCD_T2$outliers_pos
+
+## Excluding all outliers
+
+#for Time 1
+data_T1 <- data_T1 %>%
+  filter(!X %in% c(2, 3, 8, 16, 32, 47, 53, 58, 74, 90, 100, 115, 132, 149, 151, 159, 161, 168, 178, 205, 221, 226, 242, 243, 288, 298, 322, 339, 346, 352, 
+                   358, 371, 390, 394, 397, 401, 418, 423, 431, 432, 453, 479, 482, 485, 503, 529))
+
+data_T1_outliers <- data_T1 %>%
+  filter(X %in% c(2, 3, 8, 16, 32, 47, 53, 58, 74, 90, 100, 115, 132, 149, 151, 159, 161, 168, 178, 205, 221, 226, 242, 243, 288, 298, 322, 339, 346, 352, 
+                   358, 371, 390, 394, 397, 401, 418, 423, 431, 432, 453, 479, 482, 485, 503, 529)) %>% 
+  dplyr::select(USID)
+
+data_T1 <- data_T1 %>%
+  filter(!USID %in% c(22430, 6561, 5251, 25635, 4425, 27105, 4303, 12633, 26865, 24427, 6569, 12883, 4289, 14022, 6356, 25053, 25351, 10250, 24130, 25509, 4985, 6685, 
+                      13654, 12247, 14928, 14771, 4952, 14324, 12287, 19123, 24939, 5061, 6247, 19237, 18625, 18529, 27614, 15558, 5017, 27316, 9348, 11022, 6118, 26705, 
+                      17044, 5025))
+
+#for Time 2
+data_T2 <- data_T2 %>%
+  filter(!...1 %in% c(4, 6, 8, 16, 23, 33, 60, 79, 110, 118, 128, 170, 172, 178, 179, 204, 217, 302, 327, 338, 343, 345, 353, 361, 366, 374, 379))
+
+data_T2_outliers <- data_T2 %>%
+  filter(X.1 %in% c(4, 6, 8, 16, 23, 33, 60, 79, 110, 118, 128, 170, 172, 178, 179, 204, 217, 302, 327, 338, 343, 345, 353, 361, 366, 374, 379)) %>% 
+  dplyr::select(USID)
+
+data_T2 <- data_T2 %>%
+  filter(!USID %in% c(4303, 26434, 12633, 5951, 23821, 26127, 6569, 18167, 9348, 10580, 17614, 5697, 6109, 13091, 21895, 4289, 25509, 19175, 6082, 26358, 21047, 26679, 
+                      13654, 24939, 10710, 6356, 12287))
+
+
+#Merging Time 1 and Time 2 Datasets Without Outliers
+data_T1_T2 <- data_T1 %>% 
+  inner_join(data_T2, by = "USID")
+
+a <- data_T1_outliers %>% 
+  arrange(desc(USID))
+
+b <- data_T2_outliers %>% 
+  arrange(desc(USID))
+
+t.test(data_T1_T2$inclusion_T1, data_T1_T2$inclusion_T2, paired = TRUE, alternative = "two.sided")
+t.test(data_T1_T2$change_T1, data_T1_T2$change_T2, paired = TRUE, alternative = "two.sided")
+t.test(data_T1_T2$outside_in_T1, data_T1_T2$outside_in_T2, paired = TRUE, alternative = "two.sided")
+t.test(data_T1_T2$TST_T1, data_T1_T2$TST_T2, paired = TRUE, alternative = "two.sided")
+
