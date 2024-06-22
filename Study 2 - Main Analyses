@@ -1,0 +1,1854 @@
+# Main Analyses ####
+
+# Packages
+library(readxl)
+library(tidyverse)
+library(psych)
+library(readr)
+library(ggpubr)
+library(apaTables)
+library(rstatix)
+library(ggthemes)
+library(cowplot)
+library(mclust)
+library(tidyLPA)
+library(weights)
+library(Routliers)
+library(irr)
+library(moderndive)
+library(infer)
+library(datawizard)
+library(ltm)
+library(GGally)
+library(papaja)
+
+#Import the final dataset for Time 1 and Time 2
+data_T1 <- read.csv("data_T1.csv")
+
+data_T2 <- read.csv("data_T2.csv")
+
+
+## Excluding all outliers (run below to conduct LPA without outliers)
+
+#Merging Time 1 and Time 2 Datasets Without Outliers
+data_T1 <- data_T1 %>% 
+  rename(guid = "guid_T1")
+
+data_T2 <- data_T2 %>% 
+  rename(guid = "guid_T2")
+
+data_T1_T2 <- data_T1 %>% 
+  inner_join(data_T2, by = "guid")
+
+write.csv(data_T1_T2, "data_T1_T2.csv")
+data_T1_T2 <- read.csv("data_T1_T2.csv")
+
+data_T1_T2 <- data_T1_T2 %>%
+  filter(!X %in% c(5, 6, 14, 19, 23, 25, 30, 32, 36, 42, 46, 51, 55, 60, 64, 71, 72, 75, 82, 91, 92, 106, 115, 125, 126, 129, 133, 
+                      138, 139, 142, 149, 152, 154, 158, 160, 161, 164, 165, 166, 167, 168, 172, 179, 180, 184, 187, 189, 198, 199, 200, 
+                      201, 202, 203, 208, 209, 210, 211, 214, 218, 221, 227, 228, 230, 231, 237, 238, 251, 257, 264, 265, 266, 267, 270, 
+                      274, 278, 282, 286, 287, 290, 298, 301, 302, 303, 304, 306, 307, 311))
+
+
+## Demographics Summary ####
+
+summarytools::freq(data_T1$Ethnicity_T1)
+summarytools::freq(data_T2$Ethnicity_T2)
+
+data_T1 %>% 
+  filter(Ethnicity_T1 == "Other") %>% 
+  dplyr::select(Ethnicity_8_TEXT_T1)
+
+summarytools::freq(data_T1$Gender_T1)
+summarytools::freq(data_T2$Gender_T2)
+
+data_T2 %>% 
+  filter(Gender_T2 == "other") %>% 
+  dplyr::select(Gender_3_TEXT_T2)
+
+data_T2 %>% 
+  filter(Gender_T2 == "other") %>% 
+  dplyr::select(Gender_3_TEXT_T2)
+
+summarytools::freq(data_T1$pol_ideology_T1)
+summarytools::freq(data_T2$pol_ideology_T2)
+
+data_T1 %>% 
+  filter(pol_ideology_T1 == "other") %>% 
+  dplyr::select(Political_View_9_TEXT_T1)
+
+data_T2 %>% 
+  filter(pol_ideology_T2 == "other") %>% 
+  dplyr::select(Political_View_9_TEXT_T2)
+
+psych::describe(data_T1$Age_T1)
+psych::describe(data_T2$Age_T2)
+
+data_T1 %>% 
+  dplyr::select(Age_T1) %>% 
+  arrange(desc(Age_T1))
+
+data_T2 %>% 
+  select(Age_T2) %>% 
+  arrange(desc(Age_T2))
+
+psych::describe(data_T1$Poliorient_T1)
+psych::describe(data_T2$Poliorient_T2)
+
+data_T1 %>% 
+  select(Poliorient_T1) %>% 
+  arrange(desc(Poliorient_T1))
+
+summarytools::freq(data_T1$Education_T1)
+summarytools::freq(data_T2$Education_T2)
+
+summarytools::freq(data_T1$Income_T1)
+summarytools::freq(data_T2$Income_T2)
+
+psych::describe(data_T1$Ladder_SES_T1)
+psych::describe(data_T2$Ladder_SES_T2)
+
+summarytools::freq(data_T1$Religion_T1)
+summarytools::freq(data_T2$Religion_T2)
+
+data_T1 %>% 
+  filter(Religion_T1 == "other") %>% 
+  dplyr::select(Religion_4_TEXT_T1)
+
+data_T2 %>% 
+  filter(Religion_T2 == "other") %>% 
+  dplyr::select(Religion_4_TEXT_T2)
+
+psych::describe(data_T1$Religiosity_T1)
+psych::describe(data_T2$Religiosity_T2)
+
+summarytools::freq(data_T1$Place_T1)
+summarytools::freq(data_T2$Place_T2)
+
+psych::describe(data_T1$Duration..in.seconds._T1 / 60)
+psych::describe(data_T2$Duration..in.seconds._T2 / 60)
+
+
+## Reliability ####
+
+### Time 1 ####
+
+# Inter-item Reliability for Time 1 (cronbach's a)
+
+#Change Prediction Task
+change_cronbach_T1 <- rawdata_T1 %>%
+  dplyr::select(Change1_T1, Change2_T1, Change3_T1, Change4_T1, Change5_T1, Change6_T1, Change7_T1, Change8_T1)
+
+cronbach.alpha(change_cronbach_T1)
+
+#Emotion Judgment Task
+emotion_cronbach_T1 <- rawdata_T1 %>%
+  dplyr::select(Happy.Matched_1_T1:Angry.Matched_1_T1)
+
+cronbach.alpha(emotion_cronbach_T1)
+
+#Triad Task
+triad_cronbach_T1 <- rawdata_T1 %>%
+  dplyr::select(Triad1_T1, Triad2_T1, Triad3_T1, Triad4_T1, Triad5_T1, Triad6_T1, Triad7_T1, Triad8_T1, Triad9_T1, Triad10_T1)
+
+triad_cronbach_T1 <- triad_cronbach_T1 %>% replace(is.na(.), 0)
+
+triad_cronbach_T1$Triad1_T1 <- ifelse(triad_cronbach_T1$Triad1_T1 == "categorical", 1, 2)
+triad_cronbach_T1$Triad2_T1 <- ifelse(triad_cronbach_T1$Triad2_T1 == "categorical", 1, 2)
+triad_cronbach_T1$Triad3_T1 <- ifelse(triad_cronbach_T1$Triad3_T1 == "categorical", 1, 2)
+triad_cronbach_T1$Triad4_T1 <- ifelse(triad_cronbach_T1$Triad4_T1 == "categorical", 1, 2)
+triad_cronbach_T1$Triad5_T1 <- ifelse(triad_cronbach_T1$Triad5_T1 == "categorical", 1, 2)
+triad_cronbach_T1$Triad6_T1 <- ifelse(triad_cronbach_T1$Triad6_T1 == "categorical", 1, 2)
+triad_cronbach_T1$Triad7_T1 <- ifelse(triad_cronbach_T1$Triad7_T1 == "categorical", 1, 2)
+triad_cronbach_T1$Triad8_T1 <- ifelse(triad_cronbach_T1$Triad8_T1 == "categorical", 1, 2)
+triad_cronbach_T1$Triad9_T1 <- ifelse(triad_cronbach_T1$Triad9_T1 == "categorical", 1, 2)
+triad_cronbach_T1$Triad10_T1 <- ifelse(triad_cronbach_T1$Triad10_T1 == "categorical", 1, 2)
+
+cronbach.alpha(triad_cronbach_T1)
+
+#Inclusion Task
+inclusion_cronbach_T1 <- data_T1 %>%
+  dplyr::select(Inclusion_1_T1:Inclusion_96_T1)
+
+inclusion_cronbach_T1 <- inclusion_cronbach_T1 %>% replace(is.na(.), 0)
+
+cronbach.alpha(inclusion_cronbach_T1)
+
+#Proverb Task
+proverb_cronbach_T1 <- data_T1 %>%
+  dplyr::select(Proverb_1_T1:Proverb_10_T1, -Attention_Check1_T1)
+
+cronbach.alpha(proverb_cronbach_T1)
+
+# Inter-rater Reliability for Social Conflicts Task Time 1
+kappa2(conflicts_T1[, c("Coder1_Dialecticality", "Coder2_Dialecticality")], weight = "unweighted")
+kappam.light(data_T1[, 3:6]) # for multiple raters
+
+
+### Time 2 ####
+
+# Inter-item Reliability for Time 2 (cronbach's a)
+
+#Change Prediction Task
+change_cronbach_T2 <- data_T2 %>%
+  dplyr::select(Change1_T2, Change2_T2, Change3_T2, Change4_T2, Change5_T2, Change6_T2, Change7_T2, Change8_T2)
+
+cronbach.alpha(change_cronbach_T2)
+
+#Emotion Judgment Task
+emotion_cronbach_T2 <- data_T2 %>%
+  dplyr::select(Happy.Matched_1_T2:Angry.Matched_1_T2)
+
+cronbach.alpha(emotion_cronbach_T2)
+
+#Triad Task
+triad_cronbach_T2 <- data_T2 %>%
+  dplyr::select(Triad1_T2, Triad2_T2, Triad3_T2, Triad4_T2, Triad5_T2, Triad6_T2, Triad7_T2, Triad8_T2, Triad9_T2, Triad10_T2)
+
+triad_cronbach_T2 <- triad_cronbach_T2 %>% replace(is.na(.), 0)
+
+triad_cronbach_T2$Triad1_T2 <- ifelse(triad_cronbach_T2$Triad1_T2 == "categorical", 1, 2)
+triad_cronbach_T2$Triad2_T2 <- ifelse(triad_cronbach_T2$Triad2_T2 == "categorical", 1, 2)
+triad_cronbach_T2$Triad3_T2 <- ifelse(triad_cronbach_T2$Triad3_T2 == "categorical", 1, 2)
+triad_cronbach_T2$Triad4_T2 <- ifelse(triad_cronbach_T2$Triad4_T2 == "categorical", 1, 2)
+triad_cronbach_T2$Triad5_T2 <- ifelse(triad_cronbach_T2$Triad5_T2 == "categorical", 1, 2)
+triad_cronbach_T2$Triad6_T2 <- ifelse(triad_cronbach_T2$Triad6_T2 == "categorical", 1, 2)
+triad_cronbach_T2$Triad7_T2 <- ifelse(triad_cronbach_T2$Triad7_T2 == "categorical", 1, 2)
+triad_cronbach_T2$Triad8_T2 <- ifelse(triad_cronbach_T2$Triad8_T2 == "categorical", 1, 2)
+triad_cronbach_T2$Triad9_T2 <- ifelse(triad_cronbach_T2$Triad9_T2 == "categorical", 1, 2)
+triad_cronbach_T2$Triad10_T2 <- ifelse(triad_cronbach_T2$Triad10_T2 == "categorical", 1, 2)
+
+cronbach.alpha(triad_cronbach_T2)
+
+#Inclusion Task
+inclusion_cronbach_T2 <- data_T2 %>%
+  dplyr::select(Inclusion_1_T2:Inclusion_96_T2)
+
+inclusion_cronbach_T2 <- inclusion_cronbach_T2 %>% replace(is.na(.), 0)
+
+cronbach.alpha(inclusion_cronbach_T2)
+
+#Proverb Task
+proverb_cronbach_T2 <- data_T2 %>%
+  dplyr::select(Proverb_1_T2:Proverb_10_T2, -Attention_Check1_T2)
+
+cronbach.alpha(proverb_cronbach_T2)
+
+# Inter-rater Reliability for Social Conflicts Task
+kappa2(conflicts_T2[, c("Coder1_Dialecticality", "Coder2_Dialecticality")], weight = "unweighted")
+kappam.light(data_T2[, 3:6]) # for multiple raters
+
+
+# Hypothesis 1: Internal Consistency Across Measures ####
+
+## Assumption Checks For Pearson Correlation ####
+
+### Normality Checks through the Inspection of Residuals ####
+
+####Time 1####
+# Inclusion and Social Conflicts Time 1
+model <- lm(inclusion_T1 ~ soc_conflicts_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.1, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(soc_conflicts_T1 ~ inclusion_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.1, color = "white") +
+  labs(x = "Residual")
+
+# Inclusion and Change Time 1
+model <- lm(inclusion_T1 ~ change_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.05, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(change_T1 ~ inclusion_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+# Inclusion and Triad Time 1
+model <- lm(inclusion_T1 ~ triad_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.05, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(triad_T1 ~ inclusion_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 1, color = "white") +
+  labs(x = "Residual")
+
+# Inclusion and Emotion Judgment Time 1
+model <- lm(inclusion_T1 ~ emotion_judgment_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.05, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(emotion_judgment_T1 ~ inclusion_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.1, color = "white") +
+  labs(x = "Residual")
+
+# Inclusion and Proverb Time 1
+model <- lm(inclusion_T1 ~ proverb_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.05, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(proverb_T1 ~ inclusion_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.05, color = "white") +
+  labs(x = "Residual")
+
+# Change and Triad Time 1
+model <- lm(change_T1 ~ triad_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(triad_T1 ~ change_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 1, color = "white") +
+  labs(x = "Residual")
+
+# Change and Social Conflicts Time 1
+model <- lm(change_T1 ~ soc_conflicts_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(soc_conflicts_T1 ~ change_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+# Change and Emotion Judgment Time 1
+model <- lm(change_T1 ~ emotion_judgment_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(emotion_judgment_T1 ~ change_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+# Change and Proverb Time 1
+model <- lm(change_T1 ~ proverb_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(proverb_T1 ~ change_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+# Triad and Social Conflicts Time 1
+model <- lm(triad_T1 ~ soc_conflicts_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 1, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(soc_conflicts_T1 ~ triad_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+# Triad and Emotion Judgment Time 1
+model <- lm(triad_T1 ~ emotion_judgment_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 1, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(emotion_judgment_T1 ~ triad_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+# Triad and Proverb Time 1
+model <- lm(triad_T1 ~ proverb_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 1, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(proverb_T1 ~ triad_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+# Social Conflicts and Proverb Time 1
+model <- lm(soc_conflicts_T1 ~ proverb_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.05, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(proverb_T1 ~ soc_conflicts_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+# Social Conflicts and Emotion Judgment Time 1
+model <- lm(soc_conflicts_T1 ~ emotion_judgment_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.05, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(emotion_judgment_T1 ~ soc_conflicts_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+# Proverb and Emotion Judgment Time 1
+model <- lm(proverb_T1 ~ emotion_judgment_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.1, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(emotion_judgment_T1 ~ proverb_T1, data = data_T1)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+
+####Time 2####
+# Inclusion and Social Conflicts Time 2
+model <- lm(inclusion_T2 ~ soc_conflicts_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.1, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(soc_conflicts_T2 ~ inclusion_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.1, color = "white") +
+  labs(x = "Residual")
+
+# Inclusion and Change Time 2
+model <- lm(inclusion_T2 ~ change_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.05, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(change_T2 ~ inclusion_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+# Inclusion and Triad Time 2
+model <- lm(inclusion_T2 ~ triad_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.05, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(triad_T2 ~ inclusion_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.5, color = "white") +
+  labs(x = "Residual")
+
+# Inclusion and Emotion Judgment Time 2
+model <- lm(inclusion_T2 ~ emotion_judgment_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.05, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(emotion_judgment_T2 ~ inclusion_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.05, color = "white") +
+  labs(x = "Residual")
+
+# Inclusion and Proverb Time 2
+model <- lm(inclusion_T2 ~ proverb_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.05, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(proverb_T2 ~ inclusion_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.05, color = "white") +
+  labs(x = "Residual")
+
+# Change and Triad Time 2
+model <- lm(change_T2 ~ triad_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(triad_T2 ~ change_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.5, color = "white") +
+  labs(x = "Residual")
+
+# Change and Social Conflicts Time 2
+model <- lm(change_T2 ~ soc_conflicts_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(soc_conflicts_T2 ~ change_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+# Change and Emotion Judgment Time 2
+model <- lm(change_T2 ~ emotion_judgment_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(emotion_judgment_T2 ~ change_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+# Change and Proverb Time 2
+model <- lm(change_T2 ~ proverb_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(proverb_T2 ~ change_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+# Triad and Social Conflicts Time 2
+model <- lm(triad_T2 ~ soc_conflicts_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.5, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(soc_conflicts_T2 ~ triad_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+# Triad and Emotion Judgment Time 2
+model <- lm(triad_T2 ~ emotion_judgment_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.5, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(emotion_judgment_T2 ~ triad_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+# Triad and Proverb Time 2
+model <- lm(triad_T2 ~ proverb_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.5, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(proverb_T2 ~ triad_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+# Social Conflicts and Proverb Time 2
+model <- lm(soc_conflicts_T2 ~ proverb_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.05, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(proverb_T2 ~ soc_conflicts_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+# Social Conflicts and Emotion Judgment Time 2
+model <- lm(soc_conflicts_T2 ~ emotion_judgment_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.05, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(emotion_judgment_T2 ~ soc_conflicts_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+# Proverb and Emotion Judgment Time 2
+model <- lm(proverb_T2 ~ emotion_judgment_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.05, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(emotion_judgment_T2 ~ proverb_T2, data = data_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+### Exploratory Checks for Normality ####
+
+# Normality for Inclusion Task at Time 1 #
+psych::describe(data_T1$inclusion_T1)
+
+data_T1 %>% 
+  shapiro_test(inclusion_T1)
+
+ggplot(data_T1, aes(x = inclusion_T1)) +
+  geom_histogram(binwidth = 0.025, color = "white")
+
+ggqqplot(data_T1, "inclusion_T1", ggtheme = theme_bw())
+
+# Normality for Inclusion Task at Time 2 #
+psych::describe(data_T2$inclusion_T2)
+
+data_T2 %>% 
+  shapiro_test(inclusion_T2)
+
+ggplot(data_T2, aes(x = inclusion_T2)) +
+  geom_histogram(binwidth = 0.05, color = "white")
+
+ggqqplot(data_T2, "inclusion_T2", ggtheme = theme_bw())
+
+
+# Normality for Change Task at Time 1 #
+psych::describe(data_T1$change_T1)
+
+data_T1 %>% 
+  shapiro_test(change_T1)
+
+ggplot(data_T1, aes(x = change_T1)) +
+  geom_histogram(binwidth = 0.5, color = "white")
+
+ggqqplot(data_T1, "change_T1", ggtheme = theme_bw())
+
+# Normality for Change Task at Time 2 #
+psych::describe(data_T2$change_T2)
+
+data_T2 %>% 
+  shapiro_test(change_T2)
+
+ggplot(data_T2, aes(x = change_T2)) +
+  geom_histogram(binwidth = 0.5, color = "white")
+
+ggqqplot(data_T2, "change_T2", ggtheme = theme_bw())
+
+
+# Normality for Triad Task at Time 1 #
+psych::describe(data_T1$triad_T1)
+
+data_T1 %>% 
+  shapiro_test(triad_T1)
+
+ggplot(data_T1, aes(x = triad_T1)) +
+  geom_histogram(binwidth = 1, color = "white")
+
+ggqqplot(data_T1, "triad_T1", ggtheme = theme_bw())
+
+# Normality for Triad Task at Time 2 #
+psych::describe(data_T2$triad_T2)
+
+data_T2 %>% 
+  shapiro_test(triad_T2)
+
+ggplot(data_T2, aes(x = triad_T2)) +
+  geom_histogram(binwidth = 1, color = "white")
+
+ggqqplot(data_T2, "triad_T2", ggtheme = theme_bw())
+
+
+# Normality for Social Conflicts Task at Time 1 #
+psych::describe(data_T1$soc_conflicts_T1)
+
+data_T1 %>% 
+  shapiro_test(soc_conflicts_T1)
+
+ggplot(data_T1, aes(x = soc_conflicts_T1)) +
+  geom_histogram(binwidth = 0.05, color = "white")
+
+ggqqplot(data_T1, "soc_conflicts_T1", ggtheme = theme_bw())
+
+# Normality for Social Conflicts Task at Time 2 #
+psych::describe(data_T2$soc_conflicts_T2)
+
+data_T2 %>% 
+  shapiro_test(soc_conflicts_T2)
+
+ggplot(data_T2, aes(x = soc_conflicts_T2)) +
+  geom_histogram(binwidth = 0.1, color = "white")
+
+ggqqplot(data_T2, "soc_conflicts_T2", ggtheme = theme_bw())
+
+# Normality for Emotion Judgment Task at Time 1 #
+psych::describe(data_T1$emotion_judgment_T1)
+
+data_T1 %>% 
+  shapiro_test(emotion_judgment_T1)
+
+ggplot(data_T1, aes(x = emotion_judgment_T1)) +
+  geom_histogram(binwidth = 0.25, color = "white")
+
+ggqqplot(data_T1, "emotion_judgment_T1", ggtheme = theme_bw())
+
+# Normality for Emotion Judgment Task at Time 2 #
+psych::describe(data_T2$emotion_judgment_T2)
+
+data_T2 %>% 
+  shapiro_test(emotion_judgment_T2)
+
+ggplot(data_T2, aes(x = emotion_judgment_T2)) +
+  geom_histogram(binwidth = 0.1, color = "white")
+
+ggqqplot(data_T2, "emotion_judgment_T2", ggtheme = theme_bw())
+
+# Normality for Proverb Task at Time 1 #
+psych::describe(data_T1$proverb_T1)
+
+data_T1 %>% 
+  shapiro_test(proverb_T1)
+
+ggplot(data_T1, aes(x = proverb_T1)) +
+  geom_histogram(binwidth = 0.25, color = "white")
+
+ggqqplot(data_T1, "proverb_T1", ggtheme = theme_bw())
+
+# Normality for Proverb Task at Time 2 #
+psych::describe(data_T2$proverb_T2)
+
+data_T2 %>% 
+  shapiro_test(proverb_T2)
+
+ggplot(data_T2, aes(x = proverb_T2)) +
+  geom_histogram(binwidth = 0.1, color = "white")
+
+ggqqplot(data_T2, "proverb_T2", ggtheme = theme_bw())
+
+
+### Linearity Between Variables ####
+
+## Linearity of Relationships at Time 1 ##
+
+# Inclusion - Change T1
+ggplot(data_T1, aes(x = inclusion_T1, y = change_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T1, aes(x = change_T1, y = inclusion_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+#Inclusion - Triad T1
+ggplot(data_T1, aes(x = inclusion_T1, y = triad_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T1, aes(x = triad_T1, y = inclusion_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+#Inclusion - Social Conflicts T1
+ggplot(data_T1, aes(x = soc_conflicts_T1, y = inclusion_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T1, aes(x = inclusion_T1, y = soc_conflicts_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+#Inclusion - Emotion Judgment T1
+ggplot(data_T1, aes(x = emotion_judgment_T1, y = inclusion_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T1, aes(x = inclusion_T1, y = emotion_judgment_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+#Inclusion - Proverb T1
+ggplot(data_T1, aes(x = proverb_T1, y = inclusion_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T1, aes(x = inclusion_T1, y = proverb_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+
+# Change - Triad T1
+ggplot(data_T1, aes(x = change_T1, y = triad_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T1, aes(x = triad_T1, y = change_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+# Change - Social Conflicts T1
+ggplot(data_T1, aes(x = change_T1, y = soc_conflicts_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T1, aes(x = soc_conflicts_T1, y = change_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+# Change - Emotion Judgment T1
+ggplot(data_T1, aes(x = change_T1, y = emotion_judgment_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T1, aes(x = emotion_judgment_T1, y = change_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+# Change - Proverb T1
+ggplot(data_T1, aes(x = change_T1, y = proverb_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T1, aes(x = proverb_T1, y = change_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+
+# Triad - Social Conflicts T1
+ggplot(data_T1, aes(x = triad_T1, y = soc_conflicts_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T1, aes(x = soc_conflicts_T1, y = triad_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+# Triad - Emotion Judgment T1
+ggplot(data_T1, aes(x = triad_T1, y = emotion_judgment_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T1, aes(x = emotion_judgment_T1, y = triad_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+# Triad - Proverb T1
+ggplot(data_T1, aes(x = triad_T1, y = proverb_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T1, aes(x = proverb_T1, y = triad_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+# Social Conflicts - Emotion Judgment T1
+ggplot(data_T1, aes(x = soc_conflicts_T1, y = emotion_judgment_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T1, aes(x = emotion_judgment_T1, y = soc_conflicts_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+# Social Conflicts - Proverb T1
+ggplot(data_T1, aes(x = soc_conflicts_T1, y = proverb_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T1, aes(x = proverb_T1, y = soc_conflicts_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+# Emotion Judgment - Proverb T1
+ggplot(data_T1, aes(x = emotion_judgment_T1, y = proverb_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T1, aes(x = proverb_T1, y = emotion_judgment_T1)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+
+## Linearity of Relationships at Time 2 ##
+
+# Inclusion - Change T2
+ggplot(data_T2, aes(x = inclusion_T2, y = change_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T2, aes(x = change_T2, y = inclusion_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+#Inclusion - Triad T2
+ggplot(data_T2, aes(x = inclusion_T2, y = triad_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T2, aes(x = triad_T2, y = inclusion_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+#Inclusion - Social Conflicts T2
+ggplot(data_T2, aes(x = soc_conflicts_T2, y = inclusion_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T2, aes(x = inclusion_T2, y = soc_conflicts_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+#Inclusion - Emotion Judgment T2
+ggplot(data_T2, aes(x = emotion_judgment_T2, y = inclusion_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T2, aes(x = inclusion_T2, y = emotion_judgment_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+#Inclusion - Proverb T2
+ggplot(data_T2, aes(x = proverb_T2, y = inclusion_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T2, aes(x = inclusion_T2, y = proverb_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+
+# Change - Triad T2
+ggplot(data_T2, aes(x = change_T2, y = triad_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T2, aes(x = triad_T2, y = change_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+# Change - Social Conflicts T2
+ggplot(data_T2, aes(x = change_T2, y = soc_conflicts_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T2, aes(x = soc_conflicts_T2, y = change_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+# Change - Emotion Judgment T2
+ggplot(data_T2, aes(x = change_T2, y = emotion_judgment_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T2, aes(x = emotion_judgment_T2, y = change_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+# Change - Proverb T2
+ggplot(data_T2, aes(x = change_T2, y = proverb_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T2, aes(x = proverb_T2, y = change_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+
+# Triad - Social Conflicts T2
+ggplot(data_T2, aes(x = triad_T2, y = soc_conflicts_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T2, aes(x = soc_conflicts_T2, y = triad_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+# Triad - Emotion Judgment T2
+ggplot(data_T2, aes(x = triad_T2, y = emotion_judgment_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T2, aes(x = emotion_judgment_T2, y = triad_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+# Triad - Proverb T2
+ggplot(data_T2, aes(x = triad_T2, y = proverb_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T2, aes(x = proverb_T2, y = triad_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+# Social Conflicts - Emotion Judgment T2
+ggplot(data_T2, aes(x = soc_conflicts_T2, y = emotion_judgment_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T2, aes(x = emotion_judgment_T2, y = soc_conflicts_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+# Social Conflicts - Proverb T2
+ggplot(data_T2, aes(x = soc_conflicts_T2, y = proverb_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T2, aes(x = proverb_T2, y = soc_conflicts_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+# Emotion Judgment - Proverb T2
+ggplot(data_T2, aes(x = emotion_judgment_T2, y = proverb_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+ggplot(data_T2, aes(x = proverb_T2, y = emotion_judgment_T2)) +
+  geom_point() +
+  geom_smooth(method = "loess")
+
+
+## Correlation Analyses ####
+
+#Correlation Table for Time 1
+cor_table_T1 <- dplyr::select(data_T1, inclusion_T1, change_T1, triad_T1, soc_conflicts_T1, emotion_judgment_T1, proverb_T1)
+apa.cor.table(cor_table_T1, filename = "cor_table_T1")
+
+cor.test(~ inclusion_T1 + triad_T1, method = "spearman", data = data_T1)
+cor.test(~ inclusion_T1 + change_T1, method = "spearman", data = data_T1)
+cor.test(~ inclusion_T1 + soc_conflicts_T1, method = "spearman", data = data_T1)
+cor.test(~ inclusion_T1 + emotion_judgment_T1, method = "spearman", data = data_T1)
+cor.test(~ inclusion_T1 + proverb_T1, method = "spearman", data = data_T1)
+
+cor.test(~ change_T1 + triad_T1, method = "spearman", data = data_T1)
+cor.test(~ change_T1 + soc_conflicts_T1, method = "spearman", data = data_T1)
+cor.test(~ change_T1 + emotion_judgment_T1, method = "spearman", data = data_T1)
+cor.test(~ change_T1 + proverb_T1, method = "spearman", data = data_T1)
+
+cor.test(~ triad_T1 + soc_conflicts_T1, method = "spearman", data = data_T1)
+cor.test(~ triad_T1 + emotion_judgment_T1, method = "spearman", data = data_T1)
+cor.test(~ triad_T1 + proverb_T1, method = "spearman", data = data_T1)
+
+cor.test(~ soc_conflicts_T1 + emotion_judgment_T1, method = "spearman", data = data_T1)
+cor.test(~ soc_conflicts_T1 + proverb_T1, method = "spearman", data = data_T1)
+
+cor.test(~ emotion_judgment_T1 + proverb_T1, method = "spearman", data = data_T1)
+
+
+ggp <- data_T1 %>% 
+  dplyr::select(inclusion_T1, change_T1, triad_T1, soc_conflicts_T1, emotion_judgment_T1, proverb_T1)
+
+ggpairs(ggp)
+
+#Correlation Table for Time 2
+cor_table_T2 <- dplyr::select(data_T2, inclusion_T2, change_T2, triad_T2, soc_conflicts_T2, emotion_judgment_T2, proverb_T2)
+apa.cor.table(cor_table_T2, filename = "cor_table_T2")
+
+cor.test(~ inclusion_T2 + triad_T2, method = "spearman", data = data_T2)
+cor.test(~ inclusion_T2 + change_T2, method = "spearman", data = data_T2)
+cor.test(~ inclusion_T2 + soc_conflicts_T2, method = "spearman", data = data_T2)
+cor.test(~ inclusion_T2 + emotion_judgment_T2, method = "spearman", data = data_T2)
+cor.test(~ inclusion_T2 + proverb_T2, method = "spearman", data = data_T2)
+
+cor.test(~ change_T2 + triad_T2, method = "spearman", data = data_T2)
+cor.test(~ change_T2 + soc_conflicts_T2, method = "spearman", data = data_T2)
+cor.test(~ change_T2 + emotion_judgment_T2, method = "spearman", data = data_T2)
+cor.test(~ change_T2 + proverb_T2, method = "spearman", data = data_T2)
+
+cor.test(~ triad_T2 + soc_conflicts_T2, method = "spearman", data = data_T2)
+cor.test(~ triad_T2 + emotion_judgment_T2, method = "spearman", data = data_T2)
+cor.test(~ triad_T2 + proverb_T2, method = "spearman", data = data_T2)
+
+cor.test(~ soc_conflicts_T2 + emotion_judgment_T2, method = "spearman", data = data_T2)
+cor.test(~ soc_conflicts_T2 + proverb_T2, method = "spearman", data = data_T2)
+
+cor.test(~ emotion_judgment_T2 + proverb_T2, method = "spearman", data = data_T2)
+
+
+ggp <- data_T2 %>% 
+  dplyr::select(inclusion_T2, change_T2, triad_T2, soc_conflicts_T2, emotion_judgment_T2, proverb_T2)
+
+ggpairs(ggp)
+
+# Merging Time 1 and Time 2 Datasets for Hypotheses 2 and 3 ####
+
+# Select participants who participated both at Time 1 and Time 2 by merging Time 1 and Time 2 Datasets. (Needed for Hypotheses 2 and 3)
+
+#Merging Time 1 and Time 2 datasets based on participant ID
+data_T1 <- data_T1 %>% 
+  rename(guid = "guid_T1")
+
+data_T2 <- data_T2 %>% 
+  rename(guid = "guid_T2")
+
+data_T1_T2 <- data_T1 %>% 
+  right_join(data_T2, by = "guid")
+
+
+# Hypothesis 2: Cross-temporal Consistency (Test-retest stability) ####
+
+## Assumption Checks for Pearson Correlation ####
+
+### Normality Checks through the Inspection of Residuals of Same Measures Across Time 1 and Time 2 ####
+
+#Inclusion Time 1 and Time 2
+model <- lm(inclusion_T1 ~ inclusion_T2, data = data_T1_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.1, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(inclusion_T2 ~ inclusion_T1, data = data_T1_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.1, color = "white") +
+  labs(x = "Residual")
+
+#Change Time 1 and Time 2
+model <- lm(change_T1 ~ change_T2, data = data_T1_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(change_T2 ~ change_T1, data = data_T1_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+#Triad Time 1 and Time 2
+model <- lm(triad_T1 ~ triad_T2, data = data_T1_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(triad_T2 ~ triad_T1, data = data_T1_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+#Social Conflicts Time 1 and Time 2
+model <- lm(soc_conflicts_T1 ~ soc_conflicts_T2, data = data_T1_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(soc_conflicts_T2 ~ soc_conflicts_T1, data = data_T1_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+#Emotion Judgment Time 1 and Time 2
+model <- lm(emotion_judgment_T1 ~ emotion_judgment_T2, data = data_T1_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(emotion_judgment_T2 ~ emotion_judgment_T1, data = data_T1_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+#Proverb Time 1 and Time 2
+model <- lm(proverb_T1 ~ proverb_T2, data = data_T1_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+model <- lm(proverb_T2 ~ proverb_T1, data = data_T1_T2)
+regression_points <- get_regression_points(model)
+ggplot(regression_points, aes(x = residual)) +
+  geom_histogram(binwidth = 0.25, color = "white") +
+  labs(x = "Residual")
+
+### Linearity Between Variables ####
+ggplot(data_T1_T2, aes(x = inclusion_T1, y = inclusion_T2)) +
+  geom_point()
+
+ggplot(data_T1_T2, aes(x = proverb_T1, y = proverb_T2)) +
+  geom_point()
+
+ggplot(data_T1_T2, aes(x = triad_T1, y = triad_T2)) +
+  geom_point()
+
+ggplot(data_T1_T2, aes(x = change_T1, y = change_T2)) +
+  geom_point()
+
+ggplot(data_T1_T2, aes(x = emotion_judgment_T1, y = emotion_judgment_T2)) +
+  geom_point()
+
+ggplot(data_T1_T2, aes(x = soc_conflicts_T1, y = soc_conflicts_T2)) +
+  geom_point()
+
+## Correlation Analyses ####
+
+cor.test(formula = ~ inclusion_T1 + inclusion_T2, data = data_T1_T2)
+cor.test(formula = ~ change_T1 + change_T2, data = data_T1_T2)
+cor.test(formula = ~ triad_T1 + triad_T2, data = data_T1_T2)
+cor.test(formula = ~ soc_conflicts_T1 + soc_conflicts_T2, data = data_T1_T2)
+cor.test(formula = ~ proverb_T1 + proverb_T2, data = data_T1_T2)
+cor.test(formula = ~ emotion_judgment_T1 + emotion_judgment_T2, data = data_T1_T2)
+
+
+# Hypothesis 3: Behavioral Profiles ####
+
+## Preparing the datasets for Latent Profile Analyses ####
+data_T1_T2$guid <- as.factor(data_T1_T2$guid)
+
+lpa <- data_T1_T2 %>% 
+  dplyr::select(guid, inclusion_T1, inclusion_T2, change_T1, change_T2, triad_T1, triad_T2, emotion_judgment_T1, emotion_judgment_T2, 
+                proverb_T1, proverb_T2, soc_conflicts_T1, soc_conflicts_T2)
+
+lpa <- na.omit(lpa)
+
+lpa_T1 <- lpa %>% 
+  dplyr::select(guid, inclusion_T1, change_T1, triad_T1, emotion_judgment_T1, proverb_T1, soc_conflicts_T1)
+
+lpa_T1 <- lpa_T1 %>% 
+  rename(Inclusion = inclusion_T1)
+lpa_T1 <- lpa_T1 %>% 
+  rename(Change = change_T1)
+lpa_T1 <- lpa_T1 %>% 
+  rename(Triad = triad_T1)
+lpa_T1 <- lpa_T1 %>% 
+  rename(Proverb = proverb_T1)
+lpa_T1 <- lpa_T1 %>% 
+  rename(Emotion = emotion_judgment_T1)
+lpa_T1 <- lpa_T1 %>% 
+  rename(RSC = soc_conflicts_T1)
+
+lpa_T1_std <- standardize(lpa_T1) #if the participant ID was a number, it would be necessary to add "[, -1]" to not standardize ID numbers.
+
+
+lpa_T2 <- lpa %>% 
+  dplyr::select(guid, inclusion_T2, change_T2, triad_T2, emotion_judgment_T2, proverb_T2, soc_conflicts_T2)
+
+lpa_T2 <- lpa_T2 %>% 
+  rename(Inclusion = inclusion_T2)
+lpa_T2 <- lpa_T2 %>% 
+  rename(Change = change_T2)
+lpa_T2 <- lpa_T2 %>% 
+  rename(Triad = triad_T2)
+lpa_T2 <- lpa_T2 %>% 
+  rename(Proverb = proverb_T2)
+lpa_T2 <- lpa_T2 %>% 
+  rename(Emotion = emotion_judgment_T2)
+lpa_T2 <- lpa_T2 %>% 
+  rename(RSC = soc_conflicts_T2)
+
+lpa_T2_std <- standardize(lpa_T2) #if the participant ID was a number, it would be necessary to add "[, -1]" to not standardize ID numbers.
+
+## Time 1 LPA ####
+
+### Model Fit and Class Enumeration with Mclust ####
+
+#To compare four primary models
+mnames <- c("EEI", "EEE", "VVI", "VVV")
+
+mod_g <- Mclust(lpa_T1_std[, -1], modelNames = mnames)
+summary(mod_g)
+
+mod_g$G
+mod_g$modelName
+mod_g$BIC
+
+#Mclust
+m1_T1 <- Mclust(lpa_T1_std[, -1], modelNames = "EEI", G = 2) #with standardized scores
+summary(m1_T1)
+
+#BIC
+BIC <- mclustBIC(lpa_T1_std[, -1])
+summary(BIC)
+mclustBIC(lpa_T1_std[, -1])
+plot(m1_T1, what = "BIC")
+plot(m1_T1, what = "BIC", model = "EEI")
+
+#LogLik
+mclustLoglik(BIC)
+
+#ICL
+ICL <- mclustICL(lpa_T1_std[, -1])
+summary(ICL)
+mclustICL(lpa_T1_std[, -1])
+plot(ICL)
+plot(ICL, model = "EEI")
+
+#BLRT
+lrt_T1 <- mclustBootstrapLRT(lpa_T1_std[, -1], modelName = "EEI", maxG = 7)  
+lrt_T1
+plot(lrt_T1)
+
+#Table of fit indices
+ll <- mclustLoglik(mclustBIC(lpa_T1_std[, -1]))[1:7, 2]
+npara <- NULL
+for (i in 1:5) {
+  npara[i] <- nMclustParams(modelName = "EEI", d = 1, G = i)
+}
+fit1 <- data.frame(
+  nClasses = 1:7,
+  Log.Likelihood = ll,
+  AIC = 2*ll - 2 * npara,
+  BIC = m1_T1$BIC[1:7],
+  CAIC = 2*ll - npara*(log(length(lpa_T1_std[, -1])) + 1),
+  SABIC = 2*ll - npara * log((length(lpa_T1_std[, -1]) + 2)/24),
+  BLRT = c(NA, lrt_T1$obs),
+  p = c(NA, lrt_T1$p.value)
+)
+round(fit1, 2)
+
+### Classification Diagnostics ####
+
+#Average posterior class probabilities
+round(aggregate(
+  x = 1 - m1_T1$uncertainty,
+  by = list(m1_T1$classification),
+  FUN = "mean"), 2)
+
+#Plot mixture densities through dimensionality reduction
+clust_T1 <- MclustDR(m1_T1)
+plot(clust_T1, what = "boundaries", ngrid = 200)
+plot(clust_T1, what = "density", dimens = 1)
+
+### Inspecting the Model Parameters ####
+
+#Get model parameters and make a profile plot
+m1.4_T1 <- Mclust(lpa_T1_std[, -1], G = 2, modelNames = "EEI")
+summary(m1.4_T1, parameters = TRUE)
+
+#Add class membership to data as a new variable
+c_T1 <- data.frame(m1.4_T1$classification)
+lpa_T1 <- cbind(lpa_T1, c_T1)
+lpa_T1_std <- cbind(lpa_T1_std, c_T1)
+
+# Ploting mean profiles 
+m1.4_T1$parameters$mean %>%
+  data.frame() %>%
+  rename(
+    Class1 = X1,
+    Class2 = X2) %>%
+  mutate(Var = row.names(m1.4_T1$parameters$mean)) %>%
+  pivot_longer(!Var,
+               names_to = "Class",
+               values_to = "Mean") %>%
+  ggplot(aes(
+    x = Var,
+    y = Mean,
+    col = Class,
+    group = Class
+  )) +
+  geom_hline(yintercept = 0, col = "grey60") +
+  geom_line() +
+  geom_point(aes(shape = Class), size = 2) +
+  ylim(-2.5, 2.5) +
+  theme_few() +
+  scale_color_few(palette = "Dark") +
+  labs(x = "", col = "", shape = "")
+
+
+###Running LPA with tidyLPA For Comparison ####
+
+lpa_T1_std$triad_T1 <- as.numeric(lpa_T1_std$triad_T1) # run these four lines of codes if variables are not numerically coded
+lpa_T1_std$change_T1 <- as.numeric(lpa_T1_std$change_T1)
+lpa_T1_std$inclusion_T1 <- as.numeric(lpa_T1_std$inclusion_T1)
+lpa_T1_std$emotion_judgment_T1 <- as.numeric(lpa_T1_std$emotion_judgment_T1)
+lpa_T1_std$proverb_T1 <- as.numeric(lpa_T1_std$proverb_T1) 
+lpa_T1_std$soc_conficts_T1 <- as.numeric(lpa_T1_std$soc_conficts_T1)
+
+m1t_T1 <- lpa_T1_std[, -1] %>%
+  estimate_profiles(n_profiles = 1:6, 
+                    variances = "equal",
+                    covariances = "zero")
+
+fitm1t_T1 <- get_fit(m1t_T1)
+fitm1t_T1
+
+fitm1t_T1_less <- fitm1t_T1 %>% 
+  dplyr::select(Classes, LogLik, AIC, BIC, CAIC, SABIC, ICL, Entropy, BLRT_val, BLRT_p)
+
+comp_T1 <- compare_solutions(m1t_T1)
+comp_T1
+comp_T1$best
+
+
+# Plot selected indices
+fitm1t_T1 %>%
+  dplyr::select(Classes, AIC, CAIC, BIC, SABIC) %>%
+  pivot_longer(cols = !Classes,
+               names_to = "Index",
+               values_to = "value") %>%
+  ggplot(aes(x = Classes, y = value, col = Index, Group = Index)) +
+  geom_line() +
+  geom_point(aes(shape = Index), size = 2) +
+  theme_few() +
+  scale_color_few(palette = "Dark") +
+  labs(x = "Class Number", col = "", shape = "")
+
+###Calculating the interclass distance by Mahalanobis Distance ###
+cohen.d(lpa_T1_std[, -1], m1_T1$classification,alpha=.05,std=TRUE,sort=NULL,dictionary=NULL,MD=TRUE,data=NULL)
+
+## Time 2 LPA ####
+
+### Model Fit and Class Enumeration with Mclust ####
+
+#To compare four primary models
+mnames <- c("EEI", "EEE", "VVI", "VVV")
+
+mod_g <- Mclust(lpa_T2_std[, -1], modelNames = mnames)
+summary(mod_g)
+
+mod_g$G
+mod_g$modelName
+mod_g$BIC
+
+#Mclust
+m1_T2 <- Mclust(lpa_T2_std[, -1], modelNames = "EEI", G = 2) #with standardized scores
+summary(m1_T2)
+
+#BIC
+BIC <- mclustBIC(lpa_T2_std[, -1])
+summary(BIC)
+mclustBIC(lpa_T2_std[, -1])
+plot(m1_T2, what = "BIC")
+plot(m1_T2, what = "BIC", model = "EEI")
+
+#LogLik
+mclustLoglik(BIC)
+
+#ICL
+ICL <- mclustICL(lpa_T2_std[, -1])
+summary(ICL)
+mclustICL(lpa_T2_std[, -1])
+plot(ICL)
+plot(ICL, model = "EEI")
+
+#BLRT
+lrt_T2 <- mclustBootstrapLRT(lpa_T2_std[, -1], modelName = "EEI", maxG = 5)  
+lrt_T2
+plot(lrt_T2)
+
+#Table of fit indices
+ll <- mclustLoglik(mclustBIC(lpa_T2_std[, -1]))[1:7, 2]
+npara <- NULL
+for (i in 1:5) {
+  npara[i] <- nMclustParams(modelName = "EEI", d = 1, G = i)
+}
+fit1 <- data.frame(
+  nClasses = 1:7,
+  Log.Likelihood = ll,
+  AIC = 2*ll - 2 * npara,
+  BIC = m1_T2$BIC[1:7],
+  CAIC = 2*ll - npara*(log(length(lpa_T2_std[, -1])) + 1),
+  SABIC = 2*ll - npara * log((length(lpa_T2_std[, -1]) + 2)/24),
+  BLRT = c(NA, lrt_T2$obs),
+  p = c(NA, lrt_T2$p.value)
+)
+round(fit1, 2)
+
+### Classification Diagnostics ####
+
+#Average posterior class probabilities
+round(aggregate(
+  x = 1 - m1_T2$uncertainty,
+  by = list(m1_T2$classification),
+  FUN = "mean"), 2)
+
+#Plot mixture densities through dimensionality reduction
+clust_T2 <- MclustDR(m1_T2)
+plot(clust_T2, what = "boundaries", ngrid = 200)
+plot(clust_T2, what = "density", dimens = 1)
+
+### Inspecting the Model Parameters ####
+
+#Get model parameters and make a profile plot
+m1.4_T2 <- Mclust(lpa_T2_std[, -1], G = 2, modelNames = "EEI")
+summary(m1.4_T2, parameters = TRUE)
+
+#Add class membership to data as a new variable
+c_T2 <- data.frame(m1.4_T2$classification)
+lpa_T2 <- cbind(lpa_T2, c_T2)
+lpa_T2_std <- cbind(lpa_T2_std, c_T2)
+
+# Ploting mean profiles 
+m1.4_T2$parameters$mean %>%
+  data.frame() %>%
+  rename(
+    Class1 = X1,
+    Class2 = X2) %>%
+  mutate(Var = row.names(m1.4_T2$parameters$mean)) %>%
+  pivot_longer(!Var,
+               names_to = "Class",
+               values_to = "Mean") %>%
+  ggplot(aes(
+    x = Var,
+    y = Mean,
+    col = Class,
+    group = Class
+  )) +
+  geom_hline(yintercept = 0, col = "grey60") +
+  geom_line() +
+  geom_point(aes(shape = Class), size = 2) +
+  ylim(-2.5, 2.5) +
+  theme_few() +
+  scale_color_few(palette = "Dark") +
+  labs(x = "", col = "", shape = "")
+
+
+###Running LPA with tidyLPA For Comparison ####
+
+lpa_T2_std$triad_T2 <- as.numeric(lpa_T2_std$triad_T2) # run these four lines of codes if variables are not numerically coded
+lpa_T2_std$change_T2 <- as.numeric(lpa_T2_std$change_T2)
+lpa_T2_std$inclusion_T2 <- as.numeric(lpa_T2_std$inclusion_T2)
+lpa_T2_std$emotion_judgment_T2 <- as.numeric(lpa_T2_std$emotion_judgment_T2)
+lpa_T2_std$proverb_T2 <- as.numeric(lpa_T2_std$proverb_T2) 
+lpa_T2_std$soc_conficts_T2 <- as.numeric(lpa_T2_std$soc_conficts_T2)
+
+m1t_T2 <- lpa_T2_std[, -1] %>%
+  estimate_profiles(n_profiles = 1:6, 
+                    variances = "equal",
+                    covariances = "zero")
+
+fitm1t_T2 <- get_fit(m1t_T2)
+fitm1t_T2
+
+fitm1t_T2_less <- fitm1t_T2 %>% 
+  dplyr::select(Classes, LogLik, AIC, BIC, CAIC, SABIC, ICL, Entropy, BLRT_val, BLRT_p)
+
+comp_T2 <- compare_solutions(m1t_T2)
+comp_T2
+comp_T2$best
+
+
+# Plot selected indices
+fitm1t_T2 %>%
+  dplyr::select(Classes, AIC, CAIC, BIC, SABIC) %>%
+  pivot_longer(cols = !Classes,
+               names_to = "Index",
+               values_to = "value") %>%
+  ggplot(aes(x = Classes, y = value, col = Index, Group = Index)) +
+  geom_line() +
+  geom_point(aes(shape = Index), size = 2) +
+  theme_few() +
+  scale_color_few(palette = "Dark") +
+  labs(x = "Class Number", col = "", shape = "")
+
+###Calculating the interclass distance by Mahalanobis Distance ###
+cohen.d(lpa_T2_std[, -1], m1_T2$classification,alpha=.05,std=TRUE,sort=NULL,dictionary=NULL,MD=TRUE,data=NULL)
+
+## Merging LPA Time 1 and Time 2 datasets to Compare Class Membership Across Time ####
+
+#Labeing Classes as A and B
+lpa_T1_std$m1.4_T1.classification <- factor(lpa_T1_std$m1.4_T1.classification, levels = c(1:2), 
+                                            labels = c("A",  "B"))
+
+lpa_T1_std %>% 
+  group_by(m1.4_T1.classification) %>% 
+  count()
+
+lpa_T2_std$m1.4_T2.classification <- factor(lpa_T2_std$m1.4_T2.classification, levels = c(1:2), 
+                                            labels = c("B",  "A"))
+
+lpa_T2_std %>% 
+  group_by(m1.4_T2.classification) %>% 
+  count()
+
+
+lpa_T1_T2_std <- lpa_T1_std %>% 
+  inner_join(lpa_T2_std, by = "guid")
+
+classification <- lpa_T1_T2_std %>% 
+  dplyr::select(guid, m1.4_T1.classification, m1.4_T2.classification)
+
+#selecting participants who changed classes across Time 1 and Time 2
+classification2 <- classification %>% 
+  filter((m1.4_T1.classification == "A" & m1.4_T2.classification == "B") | (m1.4_T1.classification == "A" & m1.4_T2.classification == "B"))
+
+# Excluding Univariate and Multivariate Outliers for Reanalyses ####
+
+## Detecting Univariate Outliers with MAD method at Time 1 and Time 2 ####
+
+# Outliers for Inclusion Task at Time 1 #
+
+#Detecting outliers with boxplot and Interquartile Range (IQR)
+ggplot(data_T1, aes(y = inclusion_T1)) +
+  geom_boxplot()
+
+options(max.print = 1000000) # to avoid row ommissions
+
+data_T1 %>% 
+  identify_outliers(inclusion_T1)
+
+#Detecting outliers with Median Absolute Deviation (MAD) and removing them
+outl_inclusion_T1 <- outliers_mad(data_T1_T2$inclusion_T1)
+
+outl_inclusion_T1$outliers_pos
+
+
+# Outliers for Inclusion Task at Time 2 #
+
+#Detecting outliers with boxplot and Interquartile Range (IQR)
+ggplot(data_T2, aes(y = inclusion_T2)) +
+  geom_boxplot()
+
+data_T2 %>% 
+  identify_outliers(inclusion_T2)
+
+#Detecting outliers with Median Absolute Deviation (MAD) and removing them
+outl_inclusion_T2 <- outliers_mad(data_T1_T2$inclusion_T2)
+
+outl_inclusion_T2$outliers_pos
+
+
+# Outliers for Change Prediction Task at Time 1 #
+
+#Detecting outliers with boxplot and Interquartile Range (IQR)
+ggplot(data_T1, aes(y = change_T1)) +
+  geom_boxplot()
+
+data_T1 %>% 
+  identify_outliers(change_T1)
+
+#Detecting outliers with MAD and removing them
+outl_change_T1 <- outliers_mad(data_T1_T2$change_T1)
+
+outl_change_T1$outliers_pos
+
+
+# Outliers for Change Prediction Task at Time 2 #
+
+#Detecting outliers with boxplot and Interquartile Range (IQR)
+ggplot(data_T2, aes(y = change_T2)) +
+  geom_boxplot()
+
+data_T2 %>% 
+  identify_outliers(change_T2)
+
+#Detecting outliers with MAD and removing them
+outl_change_T2 <- outliers_mad(data_T1_T2$change_T2)
+
+outl_change_T2$outliers_pos
+
+# Outliers for Triad Task at Time 1 #
+
+#Detecting outliers with boxplot and Interquartile Range (IQR)
+ggplot(data_T1, aes(y = triad_T1)) +
+  geom_boxplot()
+
+data_T1 %>% 
+  identify_outliers(triad_T1)
+
+#Detecting outliers with MAD and removing them
+outl_triad_T1 <- outliers_mad(data_T1_T2$triad_T1)
+
+outl_triad_T1$outliers_pos
+
+# Outliers for Triad Task Time 2 #
+
+#Detecting outliers with boxplot and Interquartile Range (IQR)
+ggplot(data_T2, aes(y = triad_T2)) +
+  geom_boxplot()
+
+data_T2 %>% 
+  identify_outliers(triad_T2)
+
+#Detecting outliers with MAD and removing them
+outl_triad_T2 <- outliers_mad(data_T1_T2$triad_T2)
+
+outl_triad_T2$outliers_pos
+
+# Outliers for Proverb Task at Time 1 #
+
+#Detecting outliers with boxplot and Interquartile Range (IQR)
+ggplot(data_T1, aes(y = proverb_T1)) +
+  geom_boxplot()
+
+data_T1 %>% 
+  identify_outliers(proverb_T1)
+
+#Detecting outliers with MAD and removing them
+outl_proverb_T1 <- outliers_mad(data_T1_T2$proverb_T1)
+
+outl_proverb_T1$outliers_pos
+
+# Outliers for Proverb Task at Time 2 #
+
+#Detecting outliers with boxplot and Interquartile Range (IQR)
+ggplot(data_T2, aes(y = proverb_T2)) +
+  geom_boxplot()
+
+data_T2 %>% 
+  identify_outliers(proverb_T2)
+
+#Detecting outliers with MAD and removing them
+outl_proverb_T2 <- outliers_mad(data_T1_T2$proverb_T2)
+
+outl_proverb_T2$outliers_pos
+
+# Outliers for Emotion Judgment Task at Time 1 #
+
+#Detecting outliers with boxplot and Interquartile Range (IQR)
+ggplot(data_T1, aes(y = emotion_judgment_T1)) +
+  geom_boxplot()
+
+data_T1 %>% 
+  identify_outliers(emotion_judgment_T1)
+
+#Detecting outliers with MAD and removing them
+outl_emo_judgment_T1 <- outliers_mad(data_T1_T2$emotion_judgment_T1)
+
+outl_emo_judgment_T1$outliers_pos
+
+# Outliers for Emotion Judgment Task at Time 2 #
+
+#Detecting outliers with boxplot and Interquartile Range (IQR)
+ggplot(data_T2, aes(y = emotion_judgment_T2)) +
+  geom_boxplot()
+
+data_T2 %>% 
+  identify_outliers(emotion_judgment_T2)
+
+#Detecting outliers with MAD and removing them
+outl_emo_judgment_T2 <- outliers_mad(data_T1_T2$emotion_judgment_T2)
+
+outl_emo_judgment_T2$outliers_pos
+
+# Outliers for Resolution of Social Conflicts Task at Time 1 #
+
+#Detecting outliers with boxplot and Interquartile Range (IQR)
+ggplot(data_T1, aes(y = soc_conflicts_T1)) +
+  geom_boxplot()
+
+data_T1 %>% 
+  identify_outliers(soc_conflicts_T1)
+
+#Detecting outliers with MAD and removing them
+outl_soc_conflicts_T1 <- outliers_mad(data_T1_T2$soc_conflicts_T1)
+
+outl_soc_conflicts_T1$outliers_pos
+
+# Outliers for Resolution of Social Conflicts Task at Time 2 #
+
+#Detecting outliers with boxplot and Interquartile Range (IQR)
+ggplot(data_T2, aes(y = soc_conflicts_T2)) +
+  geom_boxplot()
+
+data_T2 %>% 
+  identify_outliers(soc_conflicts_T2)
+
+#Detecting outliers with MAD and removing them
+outl_soc_conflicts_T2 <- outliers_mad(data_T1_T2$soc_conflicts_T2)
+
+outl_soc_conflicts_T2$outliers_pos
+
+## Detecting Multivariate Outliers with MCD method ####
+
+#for Time 1
+MCD_T1 <- outliers_mcd(x = data.frame(data_T1_T2$inclusion_T1, data_T1_T2$change_T1, data_T1_T2$triad_T1, data_T1_T2$proverb_T1, 
+                                      data_T1_T2$emotion_judgment_T1), alpha = .001)
+
+MCD_T1$outliers_pos
+
+#for Time 2
+MCD_T2 <- outliers_mcd(x = data.frame(data_T1_T2$inclusion_T2, data_T1_T2$change_T2, data_T1_T2$triad_T2, data_T1_T2$proverb_T2, 
+                                      data_T1_T2$emotion_judgment_T2), alpha = .001)
+
+MCD_T2$outliers_pos
+
+## Excluding all outliers
+
+#for Time 1
+data_T1 <- data_T1 %>%
+  filter(!X %in% c())
+
+data_T1_outliers <- data_T1 %>%
+  filter(X %in% c()) %>% 
+  dplyr::select(USID)
+
+data_T1 <- data_T1 %>%
+  filter(!USID %in% c())
+
+#for Time 2
+data_T2 <- data_T2 %>%
+  filter(!...1 %in% c())
+
+data_T2_outliers <- data_T2 %>%
+  filter(X.1 %in% c()) %>% 
+  dplyr::select(USID)
+
+data_T2 <- data_T2 %>%
+  filter(!USID %in% c())
+
+
+#Merging Time 1 and Time 2 Datasets Without Outliers
+data_T1_T2 <- data_T1 %>% 
+  inner_join(data_T2, by = "USID")
+
+a <- data_T1_outliers %>% 
+  arrange(desc(USID))
+
+b <- data_T2_outliers %>% 
+  arrange(desc(USID))
+
+t.test(data_T1_T2$inclusion_T1, data_T1_T2$inclusion_T2, paired = TRUE, alternative = "two.sided")
+t.test(data_T1_T2$change_T1, data_T1_T2$change_T2, paired = TRUE, alternative = "two.sided")
+t.test(data_T1_T2$triad_T1, data_T1_T2$triad_T2, paired = TRUE, alternative = "two.sided")
+t.test(data_T1_T2$proverb_T1, data_T1_T2$proverb_T2, paired = TRUE, alternative = "two.sided")
+t.test(data_T1_T2$emotion_judgment_T1, data_T1_T2$emotion_judgment_T2, paired = TRUE, alternative = "two.sided")
+t.test(data_T1_T2$soc_conflicts_T1, data_T1_T2$soc_conflicts_T2, paired = TRUE, alternative = "two.sided")
